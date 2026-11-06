@@ -25,10 +25,15 @@
   .hist{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;scrollbar-width:none}
   .hist::-webkit-scrollbar{display:none}
   .chip{flex:0 0 auto;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 10px;font-size:12px;white-space:nowrap}
-  .board{display:grid;grid-template-columns:52px repeat(5,1fr);gap:4px;margin-top:10px}
-  .hd{background:var(--red);color:#fff;font-size:11px;font-weight:800;border-radius:6px;display:flex;align-items:center;justify-content:center;padding:8px 2px;text-align:center;line-height:1.1}
-  .rl{background:var(--tan);font-size:9px;font-weight:800;border-radius:6px;display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;line-height:1.1}
-  .sq{background:#fff;border:1.5px solid var(--dark);border-radius:6px;min-height:62px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;font-weight:700;padding:3px;line-height:1.15;user-select:none;position:relative}
+  .board{display:grid;grid-template-columns:34px repeat(5,minmax(0,1fr));gap:3px;margin-top:10px;width:100%}
+  .hd{background:var(--red);color:#fff;font-size:10px;font-weight:800;border-radius:6px;display:flex;align-items:center;justify-content:center;padding:8px 1px;text-align:center;line-height:1.1;overflow-wrap:anywhere;min-width:0}
+  .rl{background:var(--tan);font-size:8px;font-weight:800;border-radius:6px;display:flex;align-items:center;justify-content:center;text-align:center;padding:2px 1px;line-height:1.1;overflow-wrap:anywhere;min-width:0}
+  .sq{background:#fff;border:1.5px solid var(--dark);border-radius:6px;min-height:62px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:9.5px;font-weight:700;padding:3px 1px;line-height:1.15;user-select:none;position:relative;overflow-wrap:break-word;min-width:0;letter-spacing:-.01em}
+  .sq.long{font-size:8.5px;letter-spacing:-.03em}
+  .board{grid-template-columns:38px repeat(5,minmax(0,1fr))}
+  .rl{font-size:7.5px}
+  @media (min-width:400px){.sq{font-size:11px}.sq.long{font-size:9.5px}.hd{font-size:11px}.rl{font-size:9px}.board{grid-template-columns:44px repeat(5,minmax(0,1fr))}}
+  @media (min-width:480px){.sq{font-size:12px}}
   .sq.on{background:var(--red);color:#fff;border-color:var(--red)}
   .sq.free{background:var(--red);color:#fff;border-color:var(--red);font-size:12px}
   .sq.called::after{content:"";position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--ok)}
@@ -100,7 +105,7 @@ function boardHTML(board, marks, called, badSet){
     for(let c=0;c<5;c++){
       const i=r*5+c, t=board[r][c];
       if(t==="FREE"){ h+=`<div class="sq free">MEAT FLAG<br>FREE</div>`; continue; }
-      const cls=["sq"]; if(marks[i])cls.push("on"); if(called.has(STEAKS[c]+"|"+t))cls.push("called"); if(badSet&&badSet.has(i))cls.push("bad");
+      const cls=["sq"]; if(t.split(" ").some(w=>w.length>=12))cls.push("long"); if(marks[i])cls.push("on"); if(called.has(STEAKS[c]+"|"+t))cls.push("called"); if(badSet&&badSet.has(i))cls.push("bad");
       h+=`<div class="${cls.join(" ")}" data-i="${i}">${esc(t)}</div>`;
     }
   }
