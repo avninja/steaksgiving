@@ -20,8 +20,8 @@
   input{font:inherit;width:100%;padding:14px;border:2px solid var(--tan);border-radius:10px;font-size:18px;background:#fff}
   .callbar{background:var(--red);color:#fff;border-radius:12px;padding:12px 14px;text-align:center;margin:8px 0}
   .callbar .lbl{font-size:12px;opacity:.85;letter-spacing:1px}
-  .callbar .cur{font-size:22px;font-weight:800;margin-top:2px}
-  .callbar .cur small{display:block;font-size:13px;font-weight:600;opacity:.9}
+  .callbar .cur{font-size:18px;font-weight:700;margin-top:2px;opacity:.95}
+  .callbar .cur small{display:block;font-size:30px;font-weight:900;letter-spacing:1px;opacity:1;line-height:1.1}
   .hist{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;scrollbar-width:none}
   .hist::-webkit-scrollbar{display:none}
   .chip{flex:0 0 auto;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 10px;font-size:12px;white-space:nowrap}
@@ -47,8 +47,12 @@
   .claim{border-left:5px solid #ffb300;padding-left:10px;margin:10px 0}
   .claim.verified{border-color:var(--ok)}
   .claim.rejected{border-color:#999;opacity:.6}
-  .big{font-size:40px;font-weight:900;text-align:center;line-height:1.05;padding:18px 0}
-  .big small{display:block;font-size:16px;font-weight:700;color:#f3d9d9;margin-bottom:4px}
+  .big{font-size:26px;font-weight:700;text-align:center;line-height:1.1;padding:14px 0}
+  .big small{display:block;font-size:46px;font-weight:900;letter-spacing:1px;margin-bottom:4px}
+  .roster{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--tan)}
+  .roster:last-child{border-bottom:0}
+  .roster button{padding:8px 12px;font-size:13px;background:var(--tan);color:var(--dark)}
+  .roster .rm{color:var(--muted);text-decoration:line-through}
   .winner{background:var(--ok);color:#fff;border-radius:12px;padding:14px;text-align:center;font-weight:800;font-size:20px;margin:8px 0}
   .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
   .toast.show{opacity:1}
@@ -179,7 +183,7 @@ function playerScreen(){
 }
 
 /* ---------------- HOST ---------------- */
-let pin = sessionStorage.getItem("sg_pin")||"", claims=[], playerCount=0;
+let pin = sessionStorage.getItem("sg_pin")||"", claims=[], players=[], playerCount=0;
 async function hostLogin(){
   app.innerHTML=`<h1>🥩 HOST SCREEN</h1><div class="card"><input id="pin" inputmode="numeric" placeholder="Host PIN" maxlength="4"><div style="height:10px"></div><button class="btn" id="go">Open host screen</button></div>`;
   document.getElementById("go").onclick=async()=>{
@@ -190,11 +194,11 @@ async function hostLogin(){
   };
 }
 async function refreshHost(){
-  const [{ data: cl }, { count }] = await Promise.all([
+  const [{ data: cl }, { data: pl }] = await Promise.all([
     sb.from("claims").select("*").eq("round",game.round).order("created_at",{ascending:true}),
-    sb.from("players").select("*",{count:"exact",head:true}).eq("round",game.round)
+    sb.from("players").select("id,name,created_at,removed").eq("round",game.round).order("created_at",{ascending:true})
   ]);
-  claims=cl||[]; playerCount=count||0;
+  claims=cl||[]; players=pl||[]; playerCount=players.filter(p=>!p.removed).length;
 }
 function hostScreen(){
   const calls=game.calls||[], cur=calls[calls.length-1], called=calledSet();
@@ -212,11 +216,14 @@ function hostScreen(){
       return `<div class="card claim ${c.status}"><b>${esc(c.name)}</b> · ${esc(c.line)}<div class="muted">${label}</div>
         ${boardHTML(c.board,c.marks,called,bad)}</div>`;
     }).join("")}
+    <div class="card"><b>Players (${playerCount})</b>
+      ${players.length?players.map(p=>`<div class="roster"><span class="${p.removed?"rm":""}">${esc(p.name)}<span class="muted"> · ${new Date(p.created_at).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</span></span>${p.removed?`<span class="muted">removed</span>`:`<button data-k="${p.id}" data-n="${esc(p.name)}">Remove</button>`}</div>`).join(""):`<div class="muted">Nobody has joined yet</div>`}</div>
     <div class="card"><b>Called so far</b><div class="muted">${calls.slice().reverse().map(c=>`${c.n}. ${esc(c.steak)}: ${esc(c.topping)}`).join("<br>")||"Nothing yet"}</div></div>`;
   const act=async(fn,args,msg)=>{ const { error } = await sb.rpc(fn,{p_pin:pin,...args}); if(error) toast(error.message); else if(msg) toast(msg); };
   document.getElementById("next").onclick=()=>act("host_next_call",{});
   document.getElementById("undo").onclick=()=>act("host_undo_call",{},"Undid last call");
   document.getElementById("newround").onclick=()=>{ if(confirm("Start a new round? Clears calls and gives everyone a fresh board.")) act("host_new_round",{},"New round started"); };
+  app.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{ if(confirm(`Remove ${b.dataset.n}? They can rejoin with a new board.`)) act("host_remove_player",{p_player:b.dataset.k},"Removed"); });
 }
 
 /* ---------------- BOOT ---------------- */
@@ -232,10 +239,18 @@ function hostScreen(){
       render();
     })
     .on("postgres_changes",{event:"*",schema:"public",table:"claims"},async()=>{ if(isHost&&pin){ await refreshHost(); render(); } })
-    .on("postgres_changes",{event:"INSERT",schema:"public",table:"players"},()=>{ if(isHost&&pin){ playerCount++; render(); } })
+    .on("postgres_changes",{event:"*",schema:"public",table:"players"},async p=>{
+      if(isHost&&pin){ await refreshHost(); render(); }
+      else if(me && p.new && p.new.id===me.id && p.new.removed){ kicked(); }
+    })
     .subscribe();
+  function kicked(){ me=null; localStorage.removeItem("sg_player"); render(); toast("The host removed you. Join again to get a new board."); }
   // Safety net if realtime drops: refresh every 15s
-  setInterval(async()=>{ const prev=JSON.stringify(game); await loadGame(); if(JSON.stringify(game)!==prev){ if(isHost&&pin) await refreshHost(); render(); } },15000);
+  setInterval(async()=>{
+    const prev=JSON.stringify(game); await loadGame();
+    if(JSON.stringify(game)!==prev){ if(isHost&&pin) await refreshHost(); render(); }
+    if(!isHost && me){ const { data } = await sb.from("players").select("removed").eq("id",me.id).maybeSingle(); if(!data || data.removed) kicked(); }
+  },15000);
   if(isHost && pin){ const { data } = await sb.rpc("check_pin",{p_pin:pin}); if(!data) pin=""; else await refreshHost(); }
   render();
 })();
