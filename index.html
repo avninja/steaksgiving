@@ -199,29 +199,21 @@ function playerScreen(){
 }
 
 /* ---------------- TV ---------------- */
-let audioCtx=null, lastWinner=null;
-function moo(ctx, when){
-  const t=when??ctx.currentTime;
-  const comp=ctx.createDynamicsCompressor(); comp.threshold.value=-12; comp.ratio.value=8; comp.connect(ctx.destination);
-  const out=ctx.createGain(); out.gain.value=0.35; out.connect(comp);
-  const tone=(f0,f1,dur,delay)=>{
-    const o=ctx.createOscillator(); o.type="sawtooth";
-    const s=t+delay;
-    o.frequency.setValueAtTime(f0,s); o.frequency.exponentialRampToValueAtTime(f1,s+dur*0.35); o.frequency.exponentialRampToValueAtTime(f0*0.85,s+dur);
-    const vib=ctx.createOscillator(); vib.frequency.value=6.5; const vg=ctx.createGain(); vg.gain.value=5; vib.connect(vg); vg.connect(o.frequency);
-    const f=ctx.createBiquadFilter(); f.type="lowpass"; f.Q.value=6;
-    f.frequency.setValueAtTime(350,s); f.frequency.exponentialRampToValueAtTime(900,s+dur*0.3); f.frequency.exponentialRampToValueAtTime(300,s+dur);
-    const f2=ctx.createBiquadFilter(); f2.type="peaking"; f2.frequency.value=650; f2.Q.value=3; f2.gain.value=10;
-    const g=ctx.createGain(); g.gain.setValueAtTime(0.0001,s); g.gain.exponentialRampToValueAtTime(1,s+0.12); g.gain.setValueAtTime(1,s+dur*0.7); g.gain.exponentialRampToValueAtTime(0.0001,s+dur);
-    o.connect(f); f.connect(f2); f2.connect(g); g.connect(out);
-    o.start(s); vib.start(s); o.stop(s+dur+0.05); vib.stop(s+dur+0.05);
-  };
-  tone(95,135,1.6,0);
-  tone(100,150,1.9,1.5);
+let soundOn=localStorage.getItem("sg_tv_sound")==="1", lastWinner=null;
+const MOOS=[1,2,3,4,5].map(i=>{ const a=new Audio("moo/moo"+i+".mp3"); a.preload="auto"; return a; });
+let lastMoo=-1;
+function moo(){
+  let i; do { i=Math.floor(Math.random()*MOOS.length); } while(i===lastMoo && MOOS.length>1);
+  lastMoo=i; const a=MOOS[i]; a.currentTime=0; a.play().catch(()=>{});
 }
-function enableSound(){ if(!audioCtx){ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); } audioCtx.resume(); const b=document.getElementById("snd"); if(b) b.remove(); localStorage.setItem("sg_tv_sound","1"); }
+function enableSound(){
+  soundOn=true; localStorage.setItem("sg_tv_sound","1");
+  // unlock every clip on the user gesture so later auto-plays are allowed on phones/TV browsers
+  MOOS.forEach(a=>{ a.muted=true; a.play().then(()=>{ a.pause(); a.currentTime=0; a.muted=false; }).catch(()=>{ a.muted=false; }); });
+  const b=document.getElementById("snd"); if(b) b.remove();
+}
 function tvScreen(){
-  if(game.winner && game.winner!==lastWinner && audioCtx){ moo(audioCtx); }
+  if(game.winner && game.winner!==lastWinner && soundOn){ moo(); }
   lastWinner=game.winner;
   const calls=game.calls||[], cur=calls[calls.length-1];
   const hist=calls.slice(0,-1).reverse().slice(0,12).map(c=>`<span><b>${c.n}</b>${esc(c.steak)} · ${esc(c.topping)}</span>`).join("");
@@ -229,8 +221,8 @@ function tvScreen(){
     <div class="tvmain">${cur?`<div class="tvsteak">${esc(cur.steak)}</div><div class="tvtop2">${esc(cur.topping)}</div>`:`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Waiting for the first call…</div>`}
     ${game.winner?`<div class="tvwin">🏆 ${esc(game.winner)} has BINGO!</div>`:""}</div>
     <div class="tvhist">${hist}</div>
-    ${audioCtx?"":`<button id="snd" class="tvsnd">🔊 Tap once to enable the cow</button>`}`;
-  const s=document.getElementById("snd"); if(s) s.onclick=()=>{ enableSound(); moo(audioCtx); };
+    ${soundOn?"":`<button id="snd" class="tvsnd">🔊 Tap once to enable the cow</button>`}`;
+  const s=document.getElementById("snd"); if(s) s.onclick=()=>{ enableSound(); setTimeout(moo,400); };
 }
 
 /* ---------------- HOST ---------------- */
