@@ -161,14 +161,20 @@ function playerScreen(){
     <div class="muted center">${esc(me.name)}'s board · tap a square when it's called</div>
     ${boardHTML(me.board, me.marks, called)}
     <div class="legend"><span><i></i>called</span><span>Tap to mark · tap again to unmark</span></div>
-    <div class="fixed"><button class="btn" id="bingo" ${wins.length&&!game.winner?"":"disabled"}>${me.claimed&&!game.winner?"BINGO sent — waiting on the host":game.winner?"Round over":wins.length?"🎉 BINGO!":"BINGO (need 5 in a row)"}</button></div>`;
-  app.querySelectorAll(".sq[data-i]").forEach(el=>el.onclick=()=>{ const i=+el.dataset.i; me.marks[i]=!me.marks[i]; saveMe(); playerScreen(); });
+    ${me.claimStatus==="verified"?`<div class="winner">🎉 Your BINGO is verified${game.winner&&game.winner!==me.name?" (but "+esc(game.winner)+" got there first)":""}!</div>`:me.claimStatus==="rejected"?`<div class="card" style="border-color:#ffb300"><b>Not yet.</b> One of your marked squares hasn't been called. Unmark it and keep playing.</div>`:""}
+    <div class="fixed"><button class="btn" id="bingo" ${wins.length&&!game.winner&&me.claimStatus!=="verified"?"":"disabled"}>${game.winner?"Round over":me.claimStatus==="pending"?"Checking…":wins.length?"🎉 BINGO!":"BINGO (need 5 in a row)"}</button></div>`;
+  app.querySelectorAll(".sq[data-i]").forEach(el=>el.onclick=()=>{ const i=+el.dataset.i; me.marks[i]=!me.marks[i]; if(me.claimStatus==="rejected") me.claimStatus=null; saveMe(); playerScreen(); });
   const b=document.getElementById("bingo");
   if(b && !b.disabled) b.onclick=async()=>{
     b.disabled=true;
-    const { error } = await sb.from("claims").insert({player_id:me.id,name:me.name,round:game.round,board:me.board,marks:me.marks,line:wins.map(lineName).join(", ")});
+    const { data, error } = await sb.from("claims").insert({player_id:me.id,name:me.name,round:game.round,board:me.board,marks:me.marks,line:wins.map(lineName).join(", ")}).select("id").single();
     if(error){ toast("Couldn't send, try again"); b.disabled=false; return; }
-    me.claimed=true; saveMe(); toast("Sent! Shout it too."); playerScreen();
+    me.claimed=true; me.claimStatus="pending"; me.claimId=data.id; saveMe(); playerScreen();
+    for(let i=0;i<10;i++){
+      await new Promise(r=>setTimeout(r,700));
+      const { data: c } = await sb.from("claims").select("status").eq("id",me.claimId).single();
+      if(c && c.status!=="pending"){ me.claimStatus=c.status; saveMe(); await loadGame(); playerScreen(); toast(c.status==="verified"?"BINGO confirmed! Shout it!":"Not a valid bingo yet"); return; }
+    }
   };
 }
 
@@ -199,22 +205,18 @@ function hostScreen(){
       <div class="big">${cur?`<small>${esc(cur.steak)}</small>${esc(cur.topping)}`:"—"}</div></div>
     <div class="row"><button class="btn" id="next" ${calls.length>=75||game.winner?"disabled":""}>Next call</button><button class="btn sec" id="undo" ${calls.length?"":"disabled"}>Undo</button></div>
     <div style="height:8px"></div><button class="btn sec" id="newround">New round (reshuffles every board)</button>
-    ${pending.length?`<h2 style="color:#b36b00;font-size:16px;margin:16px 0 4px">⚠️ ${pending.length} BINGO claim${pending.length>1?"s":""} to check</h2>`:""}
+    ${claims.length?`<h2 style="font-size:16px;margin:16px 0 4px">BINGO claims (auto-checked)</h2>`:""}
     ${claims.slice().reverse().map(c=>{
       const bad=new Set(); c.marks.forEach((m,i)=>{ if(!m) return; const r=Math.floor(i/5),col=i%5,t=c.board[r][col]; if(t!=="FREE"&&!called.has(STEAKS[col]+"|"+t)) bad.add(i); });
-      const real=winningLines(c.board,c.marks);
-      return `<div class="card claim ${c.status}"><b>${esc(c.name)}</b> · ${esc(c.line)} · ${c.status}
-        ${c.status==="pending"?`<div class="muted">${real.length?"✅ Checks out: all marked squares in the line were called.":"❌ Marked squares in yellow were never called."}</div>`:""}
-        ${boardHTML(c.board,c.marks,called,bad)}
-        ${c.status==="pending"?`<div class="row" style="margin-top:8px"><button class="btn" data-v="${c.id}">Verify — winner!</button><button class="btn sec" data-r="${c.id}">Reject</button></div>`:""}</div>`;
+      const label=c.status==="verified"?"✅ Verified":c.status==="rejected"?"❌ Rejected (yellow squares were never called)":"⏳ Checking…";
+      return `<div class="card claim ${c.status}"><b>${esc(c.name)}</b> · ${esc(c.line)}<div class="muted">${label}</div>
+        ${boardHTML(c.board,c.marks,called,bad)}</div>`;
     }).join("")}
     <div class="card"><b>Called so far</b><div class="muted">${calls.slice().reverse().map(c=>`${c.n}. ${esc(c.steak)}: ${esc(c.topping)}`).join("<br>")||"Nothing yet"}</div></div>`;
   const act=async(fn,args,msg)=>{ const { error } = await sb.rpc(fn,{p_pin:pin,...args}); if(error) toast(error.message); else if(msg) toast(msg); };
   document.getElementById("next").onclick=()=>act("host_next_call",{});
   document.getElementById("undo").onclick=()=>act("host_undo_call",{},"Undid last call");
   document.getElementById("newround").onclick=()=>{ if(confirm("Start a new round? Clears calls and gives everyone a fresh board.")) act("host_new_round",{},"New round started"); };
-  app.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>act("host_resolve_claim",{p_claim:b.dataset.v,p_status:"verified"},"Winner verified"));
-  app.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>act("host_resolve_claim",{p_claim:b.dataset.r,p_status:"rejected"},"Rejected"));
 }
 
 /* ---------------- BOOT ---------------- */
