@@ -66,6 +66,7 @@
   .tvhist span{background:rgba(255,255,255,.15);border-radius:999px;padding:1vh 2vw;font-size:3vh;font-weight:700;flex:0 0 auto}
   .tvhist span b{opacity:.75;font-weight:800;margin-right:.6vw}
   .tvbingo{font-size:5vh;font-weight:900;letter-spacing:.2em;opacity:.35}
+  .tvsnd{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:4vh;padding:3vh 5vw;background:#fff;color:var(--red);border-radius:2vh;box-shadow:0 1vh 4vh rgba(0,0,0,.4)}
   .winner{background:var(--ok);color:#fff;border-radius:12px;padding:14px;text-align:center;font-weight:800;font-size:20px;margin:8px 0}
   .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
   .toast.show{opacity:1}
@@ -198,13 +199,38 @@ function playerScreen(){
 }
 
 /* ---------------- TV ---------------- */
+let audioCtx=null, lastWinner=null;
+function moo(ctx, when){
+  const t=when??ctx.currentTime;
+  const comp=ctx.createDynamicsCompressor(); comp.threshold.value=-12; comp.ratio.value=8; comp.connect(ctx.destination);
+  const out=ctx.createGain(); out.gain.value=0.35; out.connect(comp);
+  const tone=(f0,f1,dur,delay)=>{
+    const o=ctx.createOscillator(); o.type="sawtooth";
+    const s=t+delay;
+    o.frequency.setValueAtTime(f0,s); o.frequency.exponentialRampToValueAtTime(f1,s+dur*0.35); o.frequency.exponentialRampToValueAtTime(f0*0.85,s+dur);
+    const vib=ctx.createOscillator(); vib.frequency.value=6.5; const vg=ctx.createGain(); vg.gain.value=5; vib.connect(vg); vg.connect(o.frequency);
+    const f=ctx.createBiquadFilter(); f.type="lowpass"; f.Q.value=6;
+    f.frequency.setValueAtTime(350,s); f.frequency.exponentialRampToValueAtTime(900,s+dur*0.3); f.frequency.exponentialRampToValueAtTime(300,s+dur);
+    const f2=ctx.createBiquadFilter(); f2.type="peaking"; f2.frequency.value=650; f2.Q.value=3; f2.gain.value=10;
+    const g=ctx.createGain(); g.gain.setValueAtTime(0.0001,s); g.gain.exponentialRampToValueAtTime(1,s+0.12); g.gain.setValueAtTime(1,s+dur*0.7); g.gain.exponentialRampToValueAtTime(0.0001,s+dur);
+    o.connect(f); f.connect(f2); f2.connect(g); g.connect(out);
+    o.start(s); vib.start(s); o.stop(s+dur+0.05); vib.stop(s+dur+0.05);
+  };
+  tone(95,135,1.6,0);
+  tone(100,150,1.9,1.5);
+}
+function enableSound(){ if(!audioCtx){ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); } audioCtx.resume(); const b=document.getElementById("snd"); if(b) b.remove(); localStorage.setItem("sg_tv_sound","1"); }
 function tvScreen(){
+  if(game.winner && game.winner!==lastWinner && audioCtx){ moo(audioCtx); }
+  lastWinner=game.winner;
   const calls=game.calls||[], cur=calls[calls.length-1];
   const hist=calls.slice(0,-1).reverse().slice(0,12).map(c=>`<span><b>${c.n}</b>${esc(c.steak)} · ${esc(c.topping)}</span>`).join("");
   app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span>ROUND ${game.round} · CALL ${calls.length} OF 75</span></div>
     <div class="tvmain">${cur?`<div class="tvsteak">${esc(cur.steak)}</div><div class="tvtop2">${esc(cur.topping)}</div>`:`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Waiting for the first call…</div>`}
     ${game.winner?`<div class="tvwin">🏆 ${esc(game.winner)} has BINGO!</div>`:""}</div>
-    <div class="tvhist">${hist}</div>`;
+    <div class="tvhist">${hist}</div>
+    ${audioCtx?"":`<button id="snd" class="tvsnd">🔊 Tap once to enable the cow</button>`}`;
+  const s=document.getElementById("snd"); if(s) s.onclick=()=>{ enableSound(); moo(audioCtx); };
 }
 
 /* ---------------- HOST ---------------- */
