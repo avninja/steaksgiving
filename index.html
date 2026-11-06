@@ -53,6 +53,19 @@
   .roster:last-child{border-bottom:0}
   .roster button{padding:8px 12px;font-size:13px;background:var(--tan);color:var(--dark)}
   .roster .rm{color:var(--muted);text-decoration:line-through}
+  /* TV mode */
+  body.tv{background:var(--red);color:#fff;overflow:hidden}
+  body.tv .wrap{max-width:none;padding:0;height:100vh;display:flex;flex-direction:column}
+  .tvtop{display:flex;justify-content:space-between;align-items:center;padding:2vh 3vw;font-size:3vh;font-weight:700;letter-spacing:.1em;opacity:.85}
+  .tvmain{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 4vw}
+  .tvsteak{font-size:18vh;font-weight:900;letter-spacing:.04em;line-height:1}
+  .tvtop2{font-size:9vh;font-weight:700;margin-top:3vh;line-height:1.1}
+  .tvwait{font-size:8vh;font-weight:700;opacity:.9}
+  .tvwin{background:var(--ok);font-size:7vh;font-weight:900;padding:2vh 4vw;border-radius:2vh;margin-top:4vh}
+  .tvhist{display:flex;gap:1.5vw;padding:2vh 3vw 3vh;overflow:hidden;white-space:nowrap}
+  .tvhist span{background:rgba(255,255,255,.15);border-radius:999px;padding:1vh 2vw;font-size:3vh;font-weight:700;flex:0 0 auto}
+  .tvhist span b{opacity:.75;font-weight:800;margin-right:.6vw}
+  .tvbingo{font-size:5vh;font-weight:900;letter-spacing:.2em;opacity:.35}
   .winner{background:var(--ok);color:#fff;border-radius:12px;padding:14px;text-align:center;font-weight:800;font-size:20px;margin:8px 0}
   .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
   .toast.show{opacity:1}
@@ -75,6 +88,8 @@ const STEAKS = ["RIBEYE","NY STRIP","FILET","SIRLOIN","T-BONE"];
 const ROWS = ["RARE","MED RARE","MEDIUM","MED WELL","WELL DONE"];
 const app = document.getElementById("app");
 const isHost = new URLSearchParams(location.search).has("host");
+const isTV = new URLSearchParams(location.search).has("tv");
+if(isTV) document.body.classList.add("tv");
 let game = null, deck = null;
 const toastEl = document.getElementById("toast");
 function toast(m){ toastEl.textContent=m; toastEl.classList.add("show"); setTimeout(()=>toastEl.classList.remove("show"),2200); }
@@ -182,6 +197,16 @@ function playerScreen(){
   };
 }
 
+/* ---------------- TV ---------------- */
+function tvScreen(){
+  const calls=game.calls||[], cur=calls[calls.length-1];
+  const hist=calls.slice(0,-1).reverse().slice(0,12).map(c=>`<span><b>${c.n}</b>${esc(c.steak)} · ${esc(c.topping)}</span>`).join("");
+  app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span>ROUND ${game.round} · CALL ${calls.length} OF 75</span></div>
+    <div class="tvmain">${cur?`<div class="tvsteak">${esc(cur.steak)}</div><div class="tvtop2">${esc(cur.topping)}</div>`:`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Waiting for the first call…</div>`}
+    ${game.winner?`<div class="tvwin">🏆 ${esc(game.winner)} has BINGO!</div>`:""}</div>
+    <div class="tvhist">${hist}</div>`;
+}
+
 /* ---------------- HOST ---------------- */
 let pin = sessionStorage.getItem("sg_pin")||"", claims=[], players=[], playerCount=0;
 async function hostLogin(){
@@ -230,12 +255,12 @@ function hostScreen(){
 (async()=>{
   await Promise.all([loadGame(), loadDeck()]);
   loadMe();
-  const render=()=> isHost ? (pin?hostScreen():hostLogin()) : playerScreen();
+  const render=()=> isTV ? tvScreen() : isHost ? (pin?hostScreen():hostLogin()) : playerScreen();
   sb.channel("live")
     .on("postgres_changes",{event:"UPDATE",schema:"public",table:"game"},async p=>{
       const prevRound=game.round; game=p.new;
       if(isHost && pin && (game.round!==prevRound)) await refreshHost();
-      if(!isHost && me && game.round!==prevRound){ me=null; localStorage.removeItem("sg_player"); }
+      if(!isHost && !isTV && me && game.round!==prevRound){ me=null; localStorage.removeItem("sg_player"); }
       render();
     })
     .on("postgres_changes",{event:"*",schema:"public",table:"claims"},async()=>{ if(isHost&&pin){ await refreshHost(); render(); } })
@@ -249,7 +274,7 @@ function hostScreen(){
   setInterval(async()=>{
     const prev=JSON.stringify(game); await loadGame();
     if(JSON.stringify(game)!==prev){ if(isHost&&pin) await refreshHost(); render(); }
-    if(!isHost && me){ const { data } = await sb.from("players").select("removed").eq("id",me.id).maybeSingle(); if(!data || data.removed) kicked(); }
+    if(!isHost && !isTV && me){ const { data } = await sb.from("players").select("removed").eq("id",me.id).maybeSingle(); if(!data || data.removed) kicked(); }
   },15000);
   if(isHost && pin){ const { data } = await sb.rpc("check_pin",{p_pin:pin}); if(!data) pin=""; else await refreshHost(); }
   render();
