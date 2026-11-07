@@ -3,299 +3,182 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Steaksgiving Bingo</title>
+<title>Steaksgiving IV · RSVP</title>
+<meta property="og:title" content="Steaksgiving IV">
+<meta property="og:description" content="Friday, Nov 27 at Gladiola Studio. RSVP and tell us what you're bringing.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥩</text></svg>">
 <style>
-  :root{--red:#8b1e1e;--red2:#a52a2a;--cream:#fbf5ec;--tan:#e8d9c4;--dark:#2b1a14;--ok:#2e7d32;--muted:#8a7a6c}
+  :root{--red:#8b1e1e;--cream:#fbf5ec;--tan:#e8d9c4;--dark:#2b1a14;--ok:#2e7d32;--muted:#8a7a6c}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;background:var(--cream);color:var(--dark);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;min-height:100%}
+  html,body{margin:0;background:var(--cream);color:var(--dark);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
   body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-  h1{color:var(--red);font-size:22px;letter-spacing:.5px;margin:0;text-align:center}
-  .wrap{max-width:560px;margin:0 auto;padding:12px 10px 90px}
+  .wrap{max-width:560px;margin:0 auto;padding:16px 12px 40px}
+  .hero{background:var(--red);color:#fff;border-radius:16px;padding:22px 18px;text-align:center}
+  .hero h1{margin:0;font-size:30px;letter-spacing:1px;line-height:1.05}
+  .hero .sub{opacity:.9;margin-top:6px;font-size:15px}
+  .hero .when{margin-top:12px;font-size:17px;font-weight:700}
+  h2{font-size:17px;margin:18px 0 8px}
   .card{background:#fff;border:1px solid var(--tan);border-radius:12px;padding:14px;margin:10px 0}
-  button{font:inherit;border:0;border-radius:10px;padding:14px 18px;font-weight:700;cursor:pointer}
+  label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:10px 0 4px}
+  input,select{font:inherit;width:100%;padding:12px;border:2px solid var(--tan);border-radius:10px;font-size:17px;background:#fff;min-width:0}
+  button{font:inherit;border:0;border-radius:10px;padding:13px 16px;font-weight:700;cursor:pointer}
   .btn{background:var(--red);color:#fff;width:100%;font-size:18px}
-  .btn:disabled{background:#c9b8a6;color:#fff}
-  .btn.sec{background:var(--tan);color:var(--dark)}
-  input{font:inherit;width:100%;padding:14px;border:2px solid var(--tan);border-radius:10px;font-size:18px;background:#fff}
-  .callbar{background:var(--red);color:#fff;border-radius:12px;padding:12px 14px;text-align:center;margin:8px 0}
-  .callbar .lbl{font-size:12px;opacity:.85;letter-spacing:1px}
-  .callbar .cur{font-size:18px;font-weight:700;margin-top:2px;opacity:.95}
-  .callbar .cur small{display:block;font-size:30px;font-weight:900;letter-spacing:1px;opacity:1;line-height:1.1}
-  .hist{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;scrollbar-width:none}
-  .hist::-webkit-scrollbar{display:none}
-  .chip{flex:0 0 auto;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 10px;font-size:12px;white-space:nowrap}
-  .board{display:grid;grid-template-columns:34px repeat(5,minmax(0,1fr));gap:3px;margin-top:10px;width:100%}
-  .hd{background:var(--red);color:#fff;font-size:10px;font-weight:800;border-radius:6px;display:flex;align-items:center;justify-content:center;padding:8px 1px;text-align:center;line-height:1.1;overflow-wrap:anywhere;min-width:0}
-  .rl{background:var(--tan);font-size:8px;font-weight:800;border-radius:6px;display:flex;align-items:center;justify-content:center;text-align:center;padding:2px 1px;line-height:1.1;overflow-wrap:anywhere;min-width:0}
-  .sq{background:#fff;border:1.5px solid var(--dark);border-radius:6px;min-height:62px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:9.5px;font-weight:700;padding:3px 1px;line-height:1.15;user-select:none;position:relative;overflow-wrap:break-word;min-width:0;letter-spacing:-.01em}
-  .sq.long{font-size:8.5px;letter-spacing:-.03em}
-  .board{grid-template-columns:38px repeat(5,minmax(0,1fr))}
-  .rl{font-size:7.5px}
-  @media (min-width:400px){.sq{font-size:11px}.sq.long{font-size:9.5px}.hd{font-size:11px}.rl{font-size:9px}.board{grid-template-columns:44px repeat(5,minmax(0,1fr))}}
-  @media (min-width:480px){.sq{font-size:12px}}
-  .sq.on{background:var(--red);color:#fff;border-color:var(--red)}
-  .sq.free{background:var(--red);color:#fff;border-color:var(--red);font-size:12px}
-  .sq.called::after{content:"";position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--ok)}
-  .sq.on.called::after{background:#fff}
-  .sq.bad{box-shadow:inset 0 0 0 3px #ffb300}
-  .fixed{position:fixed;left:0;right:0;bottom:0;padding:10px 10px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--cream) 30%)}
-  .fixed .btn{max-width:540px;margin:0 auto;display:block;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+  .btn:disabled{background:#c9b8a6}
+  .sec{background:var(--tan);color:var(--dark)}
+  .link{background:none;color:var(--red);text-decoration:underline;padding:6px 0;font-size:14px}
+  .row{display:flex;gap:8px;align-items:center;margin-top:6px}
+  .row input{flex:1}
+  .row select{flex:0 0 118px}
+  .x{flex:0 0 42px;height:46px;background:var(--tan);color:var(--dark);font-size:20px;line-height:1;padding:0}
   .muted{color:var(--muted);font-size:13px}
-  .row{display:flex;gap:8px}
-  .row>*{flex:1}
-  .claim{border-left:5px solid #ffb300;padding-left:10px;margin:10px 0}
-  .claim.verified{border-color:var(--ok)}
-  .claim.rejected{border-color:#999;opacity:.6}
-  .big{font-size:26px;font-weight:700;text-align:center;line-height:1.1;padding:14px 0}
-  .big small{display:block;font-size:46px;font-weight:900;letter-spacing:1px;margin-bottom:4px}
-  .roster{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--tan)}
-  .roster:last-child{border-bottom:0}
-  .roster button{padding:8px 12px;font-size:13px;background:var(--tan);color:var(--dark)}
-  .roster .rm{color:var(--muted);text-decoration:line-through}
-  /* TV mode */
-  body.tv{background:var(--red);color:#fff;overflow:hidden}
-  body.tv .wrap{max-width:none;padding:0;height:100vh;display:flex;flex-direction:column}
-  .tvtop{display:flex;justify-content:space-between;align-items:center;padding:2vh 3vw;font-size:3vh;font-weight:700;letter-spacing:.1em;opacity:.85}
-  .tvmain{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 4vw}
-  .tvsteak{font-size:18vh;font-weight:900;letter-spacing:.04em;line-height:1}
-  .tvtop2{font-size:9vh;font-weight:700;margin-top:3vh;line-height:1.1}
-  .tvwait{font-size:8vh;font-weight:700;opacity:.9}
-  .tvwin{background:var(--ok);font-size:7vh;font-weight:900;padding:2vh 4vw;border-radius:2vh;margin-top:4vh}
-  .tvhist{display:flex;gap:1.5vw;padding:2vh 3vw 3vh;overflow:hidden;white-space:nowrap}
-  .tvhist span{background:rgba(255,255,255,.15);border-radius:999px;padding:1vh 2vw;font-size:3vh;font-weight:700;flex:0 0 auto}
-  .tvhist span b{opacity:.75;font-weight:800;margin-right:.6vw}
-  .tvbingo{font-size:5vh;font-weight:900;letter-spacing:.2em;opacity:.35}
-  .tvsnd{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:4vh;padding:3vh 5vw;background:#fff;color:var(--red);border-radius:2vh;box-shadow:0 1vh 4vh rgba(0,0,0,.4)}
-  .winner{background:var(--ok);color:#fff;border-radius:12px;padding:14px;text-align:center;font-weight:800;font-size:20px;margin:8px 0}
+  .stats{display:flex;gap:8px;margin:12px 0}
+  .stat{flex:1;background:#fff;border:1px solid var(--tan);border-radius:12px;padding:10px;text-align:center}
+  .stat b{display:block;font-size:26px;color:var(--red)}
+  .stat span{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.5px}
+  .guest{padding:10px 0;border-bottom:1px solid var(--tan)}
+  .guest:last-child{border-bottom:0}
+  .guest .nm{font-weight:800;font-size:16px}
+  .guest .plus{color:var(--muted);font-weight:600;font-size:14px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .chip{background:var(--cream);border:1px solid var(--tan);border-radius:999px;padding:4px 10px;font-size:13px;font-weight:600}
+  .chip i{font-style:normal;color:var(--muted);font-weight:700;margin-right:4px;font-size:11px;letter-spacing:.5px}
+  .mine{border-color:var(--red);border-width:2px}
+  .ok{background:var(--ok);color:#fff;border-radius:12px;padding:12px 14px;font-weight:700;text-align:center;margin:10px 0}
   .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
   .toast.show{opacity:1}
-  .center{text-align:center}
-  ol{padding-left:20px;margin:6px 0}
-  .legend{display:flex;gap:14px;justify-content:center;font-size:12px;color:var(--muted);margin-top:8px}
-  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:4px}
+  .catsum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .catsum div{background:#fff;border:1px solid var(--tan);border-radius:10px;padding:8px;text-align:center;font-size:12px;color:var(--muted);font-weight:700}
+  .catsum div b{display:block;font-size:20px;color:var(--dark)}
+  .hostrow{display:flex;justify-content:space-between;align-items:center}
+  .hostrow button{padding:6px 10px;font-size:12px}
 </style>
 </head>
 <body>
-<div class="wrap" id="app"><div class="center muted" style="padding:40px 0">Loading…</div></div>
+<div class="wrap" id="app"><div class="muted" style="text-align:center;padding:40px 0">Loading…</div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-const SB_URL = "https://ntmbifttgdguxifgbrcc.supabase.co";
-const SB_KEY = "sb_publishable_8gHqh_eoL7Io2-3QvJ2kcA_2VB-C_7W";
-const sb = supabase.createClient(SB_URL, SB_KEY);
+const sb = supabase.createClient("https://ntmbifttgdguxifgbrcc.supabase.co", "sb_publishable_8gHqh_eoL7Io2-3QvJ2kcA_2VB-C_7W");
+const CATS=["Appetizer","Side","Bread","Dessert","Drinks","Other"];
+const app=document.getElementById("app"), toastEl=document.getElementById("toast");
+const isHost=new URLSearchParams(location.search).has("host");
+let pin=sessionStorage.getItem("sg_pin")||"";
+const toast=m=>{ toastEl.textContent=m; toastEl.classList.add("show"); setTimeout(()=>toastEl.classList.remove("show"),2400); };
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let list=[], mine=null, editing=false;
+// draft kept in memory while the form is open
+let draft={name:"",guests:[],dishes:[]};
 
-const STEAKS = ["RIBEYE","NY STRIP","FILET","SIRLOIN","T-BONE"];
-const ROWS = ["RARE","MED RARE","MEDIUM","MED WELL","WELL DONE"];
-const app = document.getElementById("app");
-const isHost = new URLSearchParams(location.search).has("host");
-const isTV = new URLSearchParams(location.search).has("tv");
-if(isTV) document.body.classList.add("tv");
-let game = null, deck = null;
-const toastEl = document.getElementById("toast");
-function toast(m){ toastEl.textContent=m; toastEl.classList.add("show"); setTimeout(()=>toastEl.classList.remove("show"),2200); }
-function esc(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-const LINES = (()=>{ const L=[]; for(let r=0;r<5;r++)L.push([0,1,2,3,4].map(c=>r*5+c)); for(let c=0;c<5;c++)L.push([0,1,2,3,4].map(r=>r*5+c)); L.push([0,6,12,18,24]); L.push([4,8,12,16,20]); return L; })();
-const lineName = i => i<5?`${ROWS[i]} row`: i<10?`${STEAKS[i-5]} column`:"diagonal";
+function loadMine(){ try{ mine=JSON.parse(localStorage.getItem("sg_rsvp")||"null"); }catch{ mine=null; } }
+async function loadList(){ const { data } = await sb.from("rsvps_public").select("*").order("created_at",{ascending:true}); list=data||[]; }
+async function refreshMine(){
+  if(!mine?.token) return;
+  const { data } = await sb.rpc("rsvp_get",{p_token:mine.token});
+  if(!data){ mine=null; localStorage.removeItem("sg_rsvp"); } else { mine={...mine, ...data}; }
+}
+const headcount=r=>1+(r.guests||[]).length;
 
-async function loadGame(){
-  const { data } = await sb.from("game").select("*").eq("id",1).single();
-  game = data;
+function hero(){
+  return `<div class="hero"><h1>🥩 STEAKSGIVING IV</h1><div class="sub">The fourth annual steak potluck, celebrating friendship and togetherness</div>
+    <div class="when">Friday, November 27 · Gladiola Studio</div></div>`;
 }
-async function loadDeck(){
-  const { data } = await sb.from("deck").select("*");
-  deck = {}; STEAKS.forEach(s=>deck[s]=[]);
-  data.forEach(d=>deck[d.steak].push(d.topping));
+function stats(){
+  const people=list.reduce((n,r)=>n+headcount(r),0);
+  const dishes=list.reduce((n,r)=>n+(r.dishes||[]).length,0);
+  return `<div class="stats"><div class="stat"><b>${list.length}</b><span>RSVPs</span></div><div class="stat"><b>${people}</b><span>PEOPLE</span></div><div class="stat"><b>${dishes}</b><span>DISHES</span></div></div>`;
 }
-function calledSet(){ return new Set((game?.calls||[]).map(c=>c.steak+"|"+c.topping)); }
-function makeBoard(){
-  const b=[];
-  for(let r=0;r<5;r++) b.push([]);
-  STEAKS.forEach((s,c)=>{
-    const pool=[...deck[s]];
-    for(let r=0;r<5;r++){ const i=Math.floor(Math.random()*pool.length); b[r][c]=pool.splice(i,1)[0]; }
-  });
-  b[2][2]="FREE";
-  return b;
+function catSummary(){
+  const c={}; CATS.forEach(k=>c[k]=0);
+  list.forEach(r=>(r.dishes||[]).forEach(d=>{ c[CATS.includes(d.cat)?d.cat:"Other"]++; }));
+  return `<div class="catsum">${CATS.map(k=>`<div><b>${c[k]}</b>${k}</div>`).join("")}</div>`;
 }
-function boardHTML(board, marks, called, badSet){
-  let h='<div class="board"><div></div>'+STEAKS.map(s=>`<div class="hd">${s}</div>`).join("");
-  for(let r=0;r<5;r++){
-    h+=`<div class="rl">${ROWS[r]}</div>`;
-    for(let c=0;c<5;c++){
-      const i=r*5+c, t=board[r][c];
-      if(t==="FREE"){ h+=`<div class="sq free">MEAT FLAG<br>FREE</div>`; continue; }
-      const cls=["sq"]; if(t.split(" ").some(w=>w.length>=12))cls.push("long"); if(marks[i])cls.push("on"); if(called.has(STEAKS[c]+"|"+t))cls.push("called"); if(badSet&&badSet.has(i))cls.push("bad");
-      h+=`<div class="${cls.join(" ")}" data-i="${i}">${esc(t)}</div>`;
-    }
-  }
-  return h+"</div>";
-}
-function callBarHTML(){
-  const calls=game.calls||[], cur=calls[calls.length-1];
-  const hist=calls.slice(0,-1).reverse().map(c=>`<span class="chip">${esc(c.steak)}: ${esc(c.topping)}</span>`).join("");
-  return `<div class="callbar"><div class="lbl">ROUND ${game.round} · CALL ${calls.length} OF 75</div>
-    <div class="cur">${cur?`<small>${esc(cur.steak)}</small>${esc(cur.topping)}`:"Waiting for the first call…"}</div>
-    ${hist?`<div class="hist">${hist}</div>`:""}</div>`;
-}
-// Which lines are complete and fully called (free counts)
-function winningLines(board, marks){
-  const called=calledSet(), out=[];
-  LINES.forEach((ln,li)=>{
-    const ok=ln.every(i=>{ const r=Math.floor(i/5),c=i%5,t=board[r][c]; return t==="FREE"||(marks[i]&&called.has(STEAKS[c]+"|"+t)); });
-    if(ok) out.push(li);
-  });
-  return out;
+function guestList(){
+  if(!list.length) return `<div class="card muted">Nobody has RSVP'd yet. Be first.</div>`;
+  return `<div class="card">${list.map(r=>{
+    const extras=(r.guests||[]).filter(g=>g&&g.trim());
+    const plus=(r.guests||[]).length? ` <span class="plus">+${(r.guests||[]).length}${extras.length?` (${esc(extras.join(", "))})`:""}</span>`:"";
+    const chips=(r.dishes||[]).length? `<div class="chips">${r.dishes.map(d=>`<span class="chip"><i>${esc((d.cat||"").toUpperCase())}</i>${esc(d.name)}</span>`).join("")}</div>`:`<div class="muted">Bringing: TBD</div>`;
+    const host=isHost&&pin?`<button class="sec" data-del="${r.id}" data-n="${esc(r.name)}">Remove</button>`:"";
+    return `<div class="guest ${mine&&mine.id===r.id?"":""}"><div class="hostrow"><span class="nm">${esc(r.name)}${plus}${mine&&mine.id===r.id?' <span class="plus">(you)</span>':""}</span>${host}</div>${chips}</div>`;
+  }).join("")}</div>`;
 }
 
-/* ---------------- PLAYER ---------------- */
-let me = null;
-function loadMe(){ try{ me=JSON.parse(localStorage.getItem("sg_player")||"null"); }catch{ me=null; } }
-function saveMe(){ localStorage.setItem("sg_player", JSON.stringify(me)); }
+function form(){
+  const d=draft;
+  return `<div class="card mine">
+    <label>Your name</label><input id="nm" maxlength="40" placeholder="First name (last initial if there are two of you)" value="${esc(d.name)}" autocomplete="given-name">
+    <label>Bringing anyone? <span class="muted" style="font-weight:400">(names optional)</span></label>
+    <div id="guests">${d.guests.map((g,i)=>`<div class="row"><input data-g="${i}" maxlength="40" placeholder="Guest ${i+1}" value="${esc(g)}"><button class="x" data-rg="${i}" aria-label="Remove">×</button></div>`).join("")}</div>
+    <button class="link" id="addg">+ Add a person</button>
+    <label>What are you bringing? <span class="muted" style="font-weight:400">(add as many as you like)</span></label>
+    <div id="dishes">${d.dishes.map((x,i)=>`<div class="row"><input data-d="${i}" maxlength="60" placeholder="e.g., Mac and cheese" value="${esc(x.name)}"><select data-c="${i}">${CATS.map(c=>`<option ${x.cat===c?"selected":""}>${c}</option>`).join("")}</select><button class="x" data-rd="${i}" aria-label="Remove">×</button></div>`).join("")}</div>
+    <button class="link" id="addd">+ Add a dish</button>
+    <div style="height:12px"></div>
+    <button class="btn" id="save">${mine?"Update my RSVP":"I'm in! Save RSVP"}</button>
+    ${mine?`<div style="text-align:center;margin-top:8px"><button class="link" id="cancel">Can't make it after all</button> · <button class="link" id="back">Back</button></div>`:""}
+  </div>`;
+}
+function syncDraft(){
+  draft.name=document.getElementById("nm")?.value??draft.name;
+  app.querySelectorAll("[data-g]").forEach(el=>draft.guests[+el.dataset.g]=el.value);
+  app.querySelectorAll("[data-d]").forEach(el=>draft.dishes[+el.dataset.d].name=el.value);
+  app.querySelectorAll("[data-c]").forEach(el=>draft.dishes[+el.dataset.c].cat=el.value);
+}
+function mineCard(){
+  const n=(mine.guests||[]).length;
+  return `<div class="ok">✅ You're in${n?` with ${n} guest${n>1?"s":""}`:""}, ${esc(mine.name)}!</div>
+    <div class="card mine"><b>Your RSVP</b>
+      <div class="muted" style="margin-top:4px">${(mine.guests||[]).filter(g=>g&&g.trim()).length?`Guests: ${esc(mine.guests.filter(g=>g&&g.trim()).join(", "))}`:n?`+${n} guest${n>1?"s":""}`:"Just you"}</div>
+      ${(mine.dishes||[]).length?`<div class="chips">${mine.dishes.map(d=>`<span class="chip"><i>${esc((d.cat||"").toUpperCase())}</i>${esc(d.name)}</span>`).join("")}</div>`:`<div class="muted">You haven't picked a dish yet.</div>`}
+      <div style="height:10px"></div><button class="btn sec" id="edit">Edit my RSVP</button></div>`;
+}
 
-async function joinScreen(){
-  const prev = me?.name || localStorage.getItem("sg_name") || "";
-  app.innerHTML=`<h1>🥩 STEAKSGIVING IV BINGO</h1>
-    <div class="card"><p class="muted" style="margin-top:0">Enter your name to get a board. ${game.round>1?`Round ${game.round} just started, so everyone gets a fresh one.`:""}</p>
-    <input id="nm" placeholder="Your first name" maxlength="24" value="${esc(prev)}" autocomplete="given-name">
-    <div style="height:10px"></div><button class="btn" id="go">Deal me a board</button></div>
-    <div class="card muted"><b>How it works</b><ol><li>The host calls a steak and a topping.</li><li>Find it in that steak's column and tap it.</li><li>Five in a row (any direction, MEAT FLAG is free) — hit BINGO.</li></ol></div>`;
-  document.getElementById("go").onclick=async()=>{
-    const name=document.getElementById("nm").value.trim();
-    if(!name) return toast("Need a name");
-    localStorage.setItem("sg_name", name);
-    const board=makeBoard();
-    const { data, error } = await sb.from("players").insert({name, round:game.round, board}).select().single();
-    if(error) return toast("Couldn't join, try again");
-    me={id:data.id,name,round:game.round,board,marks:Array(25).fill(false),claimed:false};
-    saveMe(); playerScreen();
+function render(){
+  const showForm=!mine||editing;
+  if(showForm && !editing && !draft.name && mine===null){ /* fresh */ }
+  app.innerHTML=`${hero()}
+    ${isHost&&!pin?`<div class="card"><label>Host PIN</label><input id="pin" inputmode="numeric" maxlength="4"><div style="height:8px"></div><button class="btn" id="pingo">Unlock host tools</button></div>`:""}
+    <h2>${showForm?(mine?"Edit your RSVP":"RSVP"):"You"}</h2>
+    ${showForm?form():mineCard()}
+    <h2>Who's coming</h2>
+    ${stats()}
+    ${catSummary()}
+    <div style="height:6px"></div>
+    ${guestList()}
+    <p class="muted" style="text-align:center">Kirk's got the steak, mac and cheese, and dessert covered. Appetizers, veggie sides, bread, and drinks are the gaps to fill.</p>`;
+  wire();
+}
+function wire(){
+  const $=id=>document.getElementById(id);
+  if($("pingo")) $("pingo").onclick=async()=>{ const p=$("pin").value.trim(); const { data }=await sb.rpc("check_pin",{p_pin:p}); if(!data) return toast("Wrong PIN"); pin=p; sessionStorage.setItem("sg_pin",p); render(); };
+  app.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{ if(!confirm(`Remove ${b.dataset.n}'s RSVP?`)) return; const { error }=await sb.rpc("host_rsvp_delete",{p_pin:pin,p_id:b.dataset.del}); if(error) toast(error.message); else { await loadList(); render(); } });
+  if($("edit")) $("edit").onclick=()=>{ draft={name:mine.name,guests:[...(mine.guests||[])],dishes:(mine.dishes||[]).map(d=>({...d}))}; editing=true; render(); };
+  if($("back")) $("back").onclick=()=>{ editing=false; render(); };
+  if($("addg")) $("addg").onclick=()=>{ syncDraft(); if(draft.guests.length>=10) return toast("That's a lot of guests"); draft.guests.push(""); render(); setTimeout(()=>app.querySelector(`[data-g="${draft.guests.length-1}"]`)?.focus(),0); };
+  if($("addd")) $("addd").onclick=()=>{ syncDraft(); if(draft.dishes.length>=10) return toast("Save some for everyone else"); draft.dishes.push({name:"",cat:"Side"}); render(); setTimeout(()=>app.querySelector(`[data-d="${draft.dishes.length-1}"]`)?.focus(),0); };
+  app.querySelectorAll("[data-rg]").forEach(b=>b.onclick=()=>{ syncDraft(); draft.guests.splice(+b.dataset.rg,1); render(); });
+  app.querySelectorAll("[data-rd]").forEach(b=>b.onclick=()=>{ syncDraft(); draft.dishes.splice(+b.dataset.rd,1); render(); });
+  if($("cancel")) $("cancel").onclick=async()=>{ if(!confirm("Cancel your RSVP?")) return; await sb.rpc("rsvp_cancel",{p_token:mine.token}); mine=null; editing=false; draft={name:"",guests:[],dishes:[]}; localStorage.removeItem("sg_rsvp"); await loadList(); render(); toast("RSVP cancelled. We'll miss you."); };
+  if($("save")) $("save").onclick=async()=>{
+    syncDraft();
+    const name=draft.name.trim(); if(!name) return toast("Need your name");
+    const guests=draft.guests.map(g=>g.trim());
+    const dishes=draft.dishes.map(d=>({name:d.name.trim(),cat:d.cat})).filter(d=>d.name);
+    $("save").disabled=true;
+    const { data, error }=await sb.rpc("rsvp_save",{p_token:mine?.token??null,p_name:name,p_guests:guests,p_dishes:dishes});
+    if(error){ toast("Couldn't save, try again"); $("save").disabled=false; return; }
+    mine={id:data.id,token:data.token,name,guests,dishes}; localStorage.setItem("sg_rsvp",JSON.stringify({id:data.id,token:data.token}));
+    editing=false; await loadList(); render(); toast(mine?"Saved!":"You're in!");
+    window.scrollTo({top:0,behavior:"smooth"});
   };
 }
-function playerScreen(){
-  if(!me || me.round!==game.round) return joinScreen();
-  const called=calledSet();
-  const wins=winningLines(me.board, me.marks);
-  app.innerHTML=`<h1>🥩 STEAKSGIVING IV BINGO</h1>
-    ${game.winner?`<div class="winner">🏆 ${esc(game.winner)} has BINGO! Round over.</div>`:""}
-    ${callBarHTML()}
-    <div class="muted center">${esc(me.name)}'s board · tap a square when it's called</div>
-    ${boardHTML(me.board, me.marks, called)}
-    <div class="legend"><span><i></i>called</span><span>Tap to mark · tap again to unmark</span></div>
-    ${me.claimStatus==="verified"?`<div class="winner">🎉 Your BINGO is verified${game.winner&&game.winner!==me.name?" (but "+esc(game.winner)+" got there first)":""}!</div>`:me.claimStatus==="rejected"?`<div class="card" style="border-color:#ffb300"><b>Not yet.</b> One of your marked squares hasn't been called. Unmark it and keep playing.</div>`:""}
-    <div class="fixed"><button class="btn" id="bingo" ${wins.length&&!game.winner&&me.claimStatus!=="verified"?"":"disabled"}>${game.winner?"Round over":me.claimStatus==="pending"?"Checking…":wins.length?"🎉 BINGO!":"BINGO (need 5 in a row)"}</button></div>`;
-  app.querySelectorAll(".sq[data-i]").forEach(el=>el.onclick=()=>{ const i=+el.dataset.i; me.marks[i]=!me.marks[i]; if(me.claimStatus==="rejected") me.claimStatus=null; saveMe(); playerScreen(); });
-  const b=document.getElementById("bingo");
-  if(b && !b.disabled) b.onclick=async()=>{
-    b.disabled=true;
-    const { data, error } = await sb.from("claims").insert({player_id:me.id,name:me.name,round:game.round,board:me.board,marks:me.marks,line:wins.map(lineName).join(", ")}).select("id").single();
-    if(error){ toast("Couldn't send, try again"); b.disabled=false; return; }
-    me.claimed=true; me.claimStatus="pending"; me.claimId=data.id; saveMe(); playerScreen();
-    for(let i=0;i<10;i++){
-      await new Promise(r=>setTimeout(r,700));
-      const { data: c } = await sb.from("claims").select("status").eq("id",me.claimId).single();
-      if(c && c.status!=="pending"){ me.claimStatus=c.status; saveMe(); await loadGame(); playerScreen(); toast(c.status==="verified"?"BINGO confirmed! Shout it!":"Not a valid bingo yet"); return; }
-    }
-  };
-}
 
-/* ---------------- TV ---------------- */
-let soundOn=localStorage.getItem("sg_tv_sound")==="1", lastWinner=null;
-const MOOS=[1,2,3,4,5].map(i=>{ const a=new Audio("moo/moo"+i+".mp3"); a.preload="auto"; return a; });
-let lastMoo=-1;
-function moo(){
-  let i; do { i=Math.floor(Math.random()*MOOS.length); } while(i===lastMoo && MOOS.length>1);
-  lastMoo=i; const a=MOOS[i]; a.currentTime=0; a.play().catch(()=>{});
-}
-function enableSound(){
-  soundOn=true; localStorage.setItem("sg_tv_sound","1");
-  // unlock every clip on the user gesture so later auto-plays are allowed on phones/TV browsers
-  MOOS.forEach(a=>{ a.muted=true; a.play().then(()=>{ a.pause(); a.currentTime=0; a.muted=false; }).catch(()=>{ a.muted=false; }); });
-  const b=document.getElementById("snd"); if(b) b.remove();
-}
-function tvScreen(){
-  if(game.winner && game.winner!==lastWinner && soundOn){ moo(); }
-  lastWinner=game.winner;
-  const calls=game.calls||[], cur=calls[calls.length-1];
-  const hist=calls.slice(0,-1).reverse().slice(0,12).map(c=>`<span><b>${c.n}</b>${esc(c.steak)} · ${esc(c.topping)}</span>`).join("");
-  app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span>ROUND ${game.round} · CALL ${calls.length} OF 75</span></div>
-    <div class="tvmain">${cur?`<div class="tvsteak">${esc(cur.steak)}</div><div class="tvtop2">${esc(cur.topping)}</div>`:`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Waiting for the first call…</div>`}
-    ${game.winner?`<div class="tvwin">🏆 ${esc(game.winner)} has BINGO!</div>`:""}</div>
-    <div class="tvhist">${hist}</div>
-    ${soundOn?"":`<button id="snd" class="tvsnd">🔊 Tap once to enable the cow</button>`}`;
-  const s=document.getElementById("snd"); if(s) s.onclick=()=>{ enableSound(); setTimeout(moo,400); };
-}
-
-/* ---------------- HOST ---------------- */
-let pin = sessionStorage.getItem("sg_pin")||"", claims=[], players=[], playerCount=0;
-async function hostLogin(){
-  app.innerHTML=`<h1>🥩 HOST SCREEN</h1><div class="card"><input id="pin" inputmode="numeric" placeholder="Host PIN" maxlength="4"><div style="height:10px"></div><button class="btn" id="go">Open host screen</button></div>`;
-  document.getElementById("go").onclick=async()=>{
-    const p=document.getElementById("pin").value.trim();
-    const { data } = await sb.rpc("check_pin",{p_pin:p});
-    if(!data) return toast("Wrong PIN");
-    pin=p; sessionStorage.setItem("sg_pin",p); await refreshHost(); hostScreen();
-  };
-}
-async function refreshHost(){
-  const [{ data: cl }, { data: pl }] = await Promise.all([
-    sb.from("claims").select("*").eq("round",game.round).order("created_at",{ascending:true}),
-    sb.from("players").select("id,name,created_at,removed").eq("round",game.round).order("created_at",{ascending:true})
-  ]);
-  claims=cl||[]; players=pl||[]; playerCount=players.filter(p=>!p.removed).length;
-}
-function hostScreen(){
-  const calls=game.calls||[], cur=calls[calls.length-1], called=calledSet();
-  const pending=claims.filter(c=>c.status==="pending");
-  app.innerHTML=`<h1>🥩 HOST · ROUND ${game.round}</h1>
-    ${game.winner?`<div class="winner">🏆 ${esc(game.winner)} wins round ${game.round}</div>`:""}
-    <div class="callbar"><div class="lbl">CALL ${calls.length} OF 75 · ${playerCount} PLAYER${playerCount===1?"":"S"}</div>
-      <div class="big">${cur?`<small>${esc(cur.steak)}</small>${esc(cur.topping)}`:"—"}</div></div>
-    <div class="row"><button class="btn" id="next" ${calls.length>=75||game.winner?"disabled":""}>Next call</button><button class="btn sec" id="undo" ${calls.length?"":"disabled"}>Undo</button></div>
-    <div style="height:8px"></div><button class="btn sec" id="newround">New round (reshuffles every board)</button>
-    ${claims.length?`<h2 style="font-size:16px;margin:16px 0 4px">BINGO claims (auto-checked)</h2>`:""}
-    ${claims.slice().reverse().map(c=>{
-      const bad=new Set(); c.marks.forEach((m,i)=>{ if(!m) return; const r=Math.floor(i/5),col=i%5,t=c.board[r][col]; if(t!=="FREE"&&!called.has(STEAKS[col]+"|"+t)) bad.add(i); });
-      const label=c.status==="verified"?"✅ Verified":c.status==="rejected"?"❌ Rejected (yellow squares were never called)":"⏳ Checking…";
-      return `<div class="card claim ${c.status}"><b>${esc(c.name)}</b> · ${esc(c.line)}<div class="muted">${label}</div>
-        ${boardHTML(c.board,c.marks,called,bad)}</div>`;
-    }).join("")}
-    <div class="card"><b>Players (${playerCount})</b>
-      ${players.length?players.map(p=>`<div class="roster"><span class="${p.removed?"rm":""}">${esc(p.name)}<span class="muted"> · ${new Date(p.created_at).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</span></span>${p.removed?`<span class="muted">removed</span>`:`<button data-k="${p.id}" data-n="${esc(p.name)}">Remove</button>`}</div>`).join(""):`<div class="muted">Nobody has joined yet</div>`}</div>
-    <div class="card"><b>Called so far</b><div class="muted">${calls.slice().reverse().map(c=>`${c.n}. ${esc(c.steak)}: ${esc(c.topping)}`).join("<br>")||"Nothing yet"}</div></div>`;
-  const act=async(fn,args,msg)=>{ const { error } = await sb.rpc(fn,{p_pin:pin,...args}); if(error) toast(error.message); else if(msg) toast(msg); };
-  document.getElementById("next").onclick=()=>act("host_next_call",{});
-  document.getElementById("undo").onclick=()=>act("host_undo_call",{},"Undid last call");
-  document.getElementById("newround").onclick=()=>{ if(confirm("Start a new round? Clears calls and gives everyone a fresh board.")) act("host_new_round",{},"New round started"); };
-  app.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{ if(confirm(`Remove ${b.dataset.n}? They can rejoin with a new board.`)) act("host_remove_player",{p_player:b.dataset.k},"Removed"); });
-}
-
-/* ---------------- BOOT ---------------- */
 (async()=>{
-  await Promise.all([loadGame(), loadDeck()]);
-  loadMe();
-  const render=()=> isTV ? tvScreen() : isHost ? (pin?hostScreen():hostLogin()) : playerScreen();
-  sb.channel("live")
-    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"game"},async p=>{
-      const prevRound=game.round; game=p.new;
-      if(isHost && pin && (game.round!==prevRound)) await refreshHost();
-      if(!isHost && !isTV && me && game.round!==prevRound){ me=null; localStorage.removeItem("sg_player"); }
-      render();
-    })
-    .on("postgres_changes",{event:"*",schema:"public",table:"claims"},async()=>{ if(isHost&&pin){ await refreshHost(); render(); } })
-    .on("postgres_changes",{event:"*",schema:"public",table:"players"},async p=>{
-      if(isHost&&pin){ await refreshHost(); render(); }
-      else if(me && p.new && p.new.id===me.id && p.new.removed){ kicked(); }
-    })
-    .subscribe();
-  function kicked(){ me=null; localStorage.removeItem("sg_player"); render(); toast("The host removed you. Join again to get a new board."); }
-  // Safety net if realtime drops: refresh every 15s
-  setInterval(async()=>{
-    const prev=JSON.stringify(game); await loadGame();
-    if(JSON.stringify(game)!==prev){ if(isHost&&pin) await refreshHost(); render(); }
-    if(!isHost && !isTV && me){ const { data } = await sb.from("players").select("removed").eq("id",me.id).maybeSingle(); if(!data || data.removed) kicked(); }
-  },15000);
-  if(isHost && pin){ const { data } = await sb.rpc("check_pin",{p_pin:pin}); if(!data) pin=""; else await refreshHost(); }
+  loadMine();
+  await Promise.all([loadList(), refreshMine()]);
+  if(mine && !mine.name){ mine=null; localStorage.removeItem("sg_rsvp"); }
   render();
+  sb.channel("rsvp-live").on("postgres_changes",{event:"*",schema:"public",table:"rsvps"},async()=>{ await loadList(); if(!editing) render(); }).subscribe();
 })();
 </script>
 </body>
