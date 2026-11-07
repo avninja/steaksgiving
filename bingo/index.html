@@ -53,6 +53,17 @@
   .roster:last-child{border-bottom:0}
   .roster button{padding:8px 12px;font-size:13px;background:var(--tan);color:var(--dark)}
   .roster .rm{color:var(--muted);text-decoration:line-through}
+  /* marbled steak backdrop on phone screens (TV mode keeps its plain red, see body.tv below) */
+  html{background:#5e0d12}
+  body:not(.tv){min-height:100vh;background:linear-gradient(rgba(40,6,8,.28),rgba(40,6,8,.28)),url(../img/marbling.jpg) 0 0/640px repeat #5e0d12}
+  body:not(.tv) h1,body:not(.tv) h2{color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+  body:not(.tv) .wrap>.muted:not(.card),body:not(.tv) .legend{color:#fff;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+  body:not(.tv) .callbar{border:3px solid var(--cream);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+  body:not(.tv) .card{box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  body:not(.tv) .wrap>.board{background:var(--cream);padding:6px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+  body:not(.tv) .claim.rejected{opacity:1;background:#efe7dd}
+  body:not(.tv) .claim.rejected>*{opacity:.65}
+  body:not(.tv) .fixed{background:linear-gradient(transparent,rgba(40,6,8,.85) 35%)}
   /* TV mode */
   body.tv{background:var(--red);color:#fff;overflow:hidden}
   body.tv .wrap{max-width:none;padding:0;height:100vh;display:flex;flex-direction:column}
