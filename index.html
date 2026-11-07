@@ -101,7 +101,6 @@ const H=()=>isHost&&pin;
 // Event details. The street address is NOT in this file: it comes from the
 // rsvp_event RPC, which only returns it for a valid RSVP token.
 const EVENT={title:"Steaksgiving IV",when:"Friday, November 27 · 6–10 PM",start:"20261127T230000Z",end:"20261128T030000Z"};
-const HOST_DISHES=[{who:"Kirk",name:"Steak"},{who:"Kirk",name:"Mac and cheese"}];
 let evt=null, editTok=null;
 
 function loadMine(){
@@ -128,7 +127,6 @@ function nameTaken(name){
 }
 function dishTaken(name){
   const n=norm(name); if(n.length<3) return null;
-  for(const h of HOST_DISHES) if(norm(h.name)===n) return {who:h.who,name:h.name};
   for(const r of list){ if(r.id===mine?.id) continue; for(const d of (r.dishes||[])) if(norm(d.name)===n) return {who:r.name,name:d.name}; }
   return null;
 }
