@@ -36,6 +36,7 @@
   @media (min-width:480px){.sq{font-size:12px}}
   .sq.on{background:var(--red);color:#fff;border-color:var(--red)}
   .sq.free{background:var(--red);color:#fff;border-color:var(--red);font-size:12px}
+  .freemoji{font-size:1.5em;line-height:1.15}
   .sq.called::after{content:"";position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--ok)}
   .sq.on.called::after{background:#fff}
   .sq.bad{box-shadow:inset 0 0 0 3px #ffb300}
@@ -135,7 +136,7 @@ function boardHTML(board, marks, called, badSet){
     h+=`<div class="rl">${ROWS[r]}</div>`;
     for(let c=0;c<5;c++){
       const i=r*5+c, t=board[r][c];
-      if(t==="FREE"){ h+=`<div class="sq free">MEAT FLAG<br>FREE</div>`; continue; }
+      if(t==="FREE"){ h+=`<div class="sq free"><span>FREE<br><span class="freemoji">🥩</span><br>STEAK</span></div>`; continue; }
       const cls=["sq"]; if(t.split(" ").some(w=>w.length>=12))cls.push("long"); if(marks[i])cls.push("on"); if(called.has(STEAKS[c]+"|"+t))cls.push("called"); if(badSet&&badSet.has(i))cls.push("bad");
       h+=`<div class="${cls.join(" ")}" data-i="${i}">${esc(t)}</div>`;
     }
@@ -170,7 +171,7 @@ async function joinScreen(){
     <div class="card"><p class="muted" style="margin-top:0">Enter your name to get a board. ${game.round>1?`Round ${game.round} just started, so everyone gets a fresh one.`:""}</p>
     <input id="nm" placeholder="Your first name" maxlength="24" value="${esc(prev)}" autocomplete="given-name">
     <div style="height:10px"></div><button class="btn" id="go">Deal me a board</button></div>
-    <div class="card muted"><b>How it works</b><ol><li>The host calls a steak and a topping.</li><li>Find it in that steak's column and tap it.</li><li>Five in a row (any direction, MEAT FLAG is free) — hit BINGO.</li></ol></div>`;
+    <div class="card muted"><b>How it works</b><ol><li>The host calls a steak and a topping.</li><li>Find it in that steak's column and tap it.</li><li>Five in a row (any direction, the FREE 🥩 STEAK square counts) — hit BINGO.</li></ol></div>`;
   document.getElementById("go").onclick=async()=>{
     const name=document.getElementById("nm").value.trim();
     if(!name) return toast("Need a name");
