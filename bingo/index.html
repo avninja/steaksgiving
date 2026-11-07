@@ -62,7 +62,7 @@
   .tvtop2{font-size:9vh;font-weight:700;margin-top:3vh;line-height:1.1}
   .tvwait{font-size:8vh;font-weight:700;opacity:.9}
   .tvwin{background:var(--ok);font-size:7vh;font-weight:900;padding:2vh 4vw;border-radius:2vh;margin-top:4vh}
-  .tvhist{display:flex;gap:1.5vw;padding:2vh 3vw 3vh;overflow:hidden;white-space:nowrap}
+  .tvhist{display:flex;flex-wrap:wrap;justify-content:center;gap:1.5vh 1.5vw;padding:2vh 3vw 3vh;white-space:nowrap}
   .tvhist span{background:rgba(255,255,255,.15);border-radius:999px;padding:1vh 2vw;font-size:3vh;font-weight:700;flex:0 0 auto}
   .tvhist span b{opacity:.75;font-weight:800;margin-right:.6vw}
   .tvbingo{font-size:5vh;font-weight:900;letter-spacing:.2em;opacity:.35}
@@ -216,7 +216,7 @@ function tvScreen(){
   if(game.winner && game.winner!==lastWinner && soundOn){ moo(); }
   lastWinner=game.winner;
   const calls=game.calls||[], cur=calls[calls.length-1];
-  const hist=calls.slice(0,-1).reverse().slice(0,12).map(c=>`<span><b>${c.n}</b>${esc(c.steak)} · ${esc(c.topping)}</span>`).join("");
+  const hist=calls.slice(0,-1).reverse().slice(0,8).map(c=>`<span><b>${c.n}</b>${esc(c.steak)} · ${esc(c.topping)}</span>`).join("");
   app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span>ROUND ${game.round} · CALL ${calls.length} OF 75</span></div>
     <div class="tvmain">${cur?`<div class="tvsteak">${esc(cur.steak)}</div><div class="tvtop2">${esc(cur.topping)}</div>`:`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Waiting for the first call…</div>`}
     ${game.winner?`<div class="tvwin">🏆 ${esc(game.winner)} has BINGO!</div>`:""}</div>
