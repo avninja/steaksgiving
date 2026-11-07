@@ -65,7 +65,6 @@
   textarea{font:inherit;width:100%;padding:12px;border:2px solid var(--tan);border-radius:10px;font-size:15px;min-height:70px}
   pre.roster{background:#fff;color:var(--dark);border:1px solid var(--tan);border-radius:10px;padding:12px;font-size:13px;white-space:pre-wrap;line-height:1.5;font-family:ui-monospace,Menlo,Consolas,monospace}
   .hnote{font-size:12px;color:#b36b00;font-weight:700;margin-top:4px}
-  .foot{text-align:center;color:#fff;font-size:14px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.6)}
   .warn{font-size:13px;color:#a35f00;font-weight:600;margin:4px 0 0}
   .warn:empty{display:none}
   .need{background:#fff7e8;border:1px solid #f0d9ae;border-radius:10px;padding:10px 12px;font-size:14px;margin:8px 0 2px}
@@ -297,7 +296,6 @@ function render(){
     ${catSummary()}
     <div style="height:6px"></div>
     ${guestList()}
-    <p class="foot">Kirk's got the steak and mac and cheese covered.</p>
     ${showForm&&!H()?"":neededHTML()}`;
   wire();
 }
