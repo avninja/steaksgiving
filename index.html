@@ -63,6 +63,15 @@
   textarea{font:inherit;width:100%;padding:12px;border:2px solid var(--tan);border-radius:10px;font-size:15px;min-height:70px}
   pre.roster{background:#fff;color:var(--dark);border:1px solid var(--tan);border-radius:10px;padding:12px;font-size:13px;white-space:pre-wrap;line-height:1.5;font-family:ui-monospace,Menlo,Consolas,monospace}
   .hnote{font-size:12px;color:#b36b00;font-weight:700;margin-top:4px}
+  .warn{font-size:13px;color:#a35f00;font-weight:600;margin:4px 0 0}
+  .warn:empty{display:none}
+  .need{background:#fff7e8;border:1px solid #f0d9ae;border-radius:10px;padding:10px 12px;font-size:14px;margin:8px 0 2px}
+  .need b{color:var(--red)}
+  .details div{margin-top:6px;font-size:15px}
+  .details a{color:var(--red);font-weight:700}
+  .flag{background:var(--cream);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px}
+  .btnrow{display:flex;gap:8px;margin-top:10px}
+  .btnrow button{flex:1;font-size:15px;padding:11px}
   @media print{.hero,.hostbar,.card.mine,h2,.stats,.catsum,.muted,.acts,button{display:none!important}pre.roster{border:0;font-size:14px}body{background:#fff}}
 </style>
 </head>
@@ -87,7 +96,69 @@ let hostEdit=null;   // {id|null, name, guests, dishes, host_note}
 let showRoster=false;
 const H=()=>isHost&&pin;
 
-function loadMine(){ try{ mine=JSON.parse(localStorage.getItem("sg_rsvp")||"null"); }catch{ mine=null; } }
+// Event details. The street address is NOT in this file: it comes from the
+// rsvp_event RPC, which only returns it for a valid RSVP token.
+const EVENT={title:"Steaksgiving IV",when:"Friday, November 27 · 6–10 PM",start:"20261127T230000Z",end:"20261128T030000Z"};
+const HOST_DISHES=[{who:"Kirk",name:"Steak"},{who:"Kirk",name:"Mac and cheese"}];
+let evt=null, editTok=null;
+
+function loadMine(){
+  // A personal edit link (?edit=<token>) adopts that RSVP on this device.
+  const params=new URLSearchParams(location.search), tok=params.get("edit");
+  editTok=tok;
+  if(tok){
+    if(/^[0-9a-f-]{36}$/i.test(tok)) localStorage.setItem("sg_rsvp",JSON.stringify({token:tok}));
+    params.delete("edit"); const q=params.toString();
+    history.replaceState(null,"",location.pathname+(q?"?"+q:"")+location.hash);
+  }
+  try{ mine=JSON.parse(localStorage.getItem("sg_rsvp")||"null"); }catch{ mine=null; }
+}
+async function loadEvent(){
+  if(!mine?.token){ evt=null; return; }
+  const { data } = await sb.rpc("rsvp_event",{p_token:mine.token});
+  evt=data||null;
+}
+const editLink=()=>`${location.origin}${location.pathname}?edit=${mine.token}`;
+const norm=s=>String(s||"").toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g," ").trim().replace(/s\b/g,"");
+function nameTaken(name){
+  const n=norm(name); if(!n) return null;
+  return list.find(r=>norm(r.name)===n && r.id!==mine?.id)||null;
+}
+function dishTaken(name){
+  const n=norm(name); if(n.length<3) return null;
+  for(const h of HOST_DISHES) if(norm(h.name)===n) return {who:h.who,name:h.name};
+  for(const r of list){ if(r.id===mine?.id) continue; for(const d of (r.dishes||[])) if(norm(d.name)===n) return {who:r.name,name:d.name}; }
+  return null;
+}
+// "Still needed": targets grow with headcount. Sides/apps ~1 per 6 people; bread/drinks/dessert ~1 per 10.
+const PER={Appetizer:6,Side:6,Bread:10,Drinks:10,Dessert:10};
+const PLURAL={Appetizer:"appetizers",Side:"sides",Bread:"breads",Drinks:"drinks",Dessert:"desserts"};
+function stillNeeded(){
+  const people=list.reduce((n,r)=>n+headcount(r),0);
+  const have={}; list.forEach(r=>(r.dishes||[]).forEach(d=>{ have[d.cat]=(have[d.cat]||0)+1; }));
+  return Object.keys(PER).map(c=>[c, Math.max(1,Math.ceil(people/PER[c]))-(have[c]||0)]).filter(([,n])=>n>0);
+}
+function neededHTML(){
+  const need=stillNeeded();
+  if(!need.length) return `<div class="need">Every category is covered. Bring whatever you love.</div>`;
+  return `<div class="need"><b>Still needed:</b> ${need.map(([c,n])=>n>1?`${n} more ${PLURAL[c]}`:c==="Drinks"?"drinks":c.toLowerCase()).join(", ")}</div>`;
+}
+function nameWarn(name){
+  const r=nameTaken(name); if(!r) return "";
+  return `Looks like ${esc(r.name)} already RSVP'd. If that's you, open your saved edit link to change it, or ask the host. A different ${esc(r.name)}? Add your last initial.`;
+}
+function dishWarn(name){
+  const t=dishTaken(name); if(!t) return "";
+  return `${esc(t.who)}'s already bringing ${esc(t.name.toLowerCase())}. Maybe something else? (Totally fine if you want to anyway.)`;
+}
+function icsHref(){
+  const loc=(evt?.address||"Gladiola Studio").replace(/[,;\\]/g,m=>"\\"+m);
+  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Steaksgiving//RSVP//EN","BEGIN:VEVENT",
+    "UID:steaksgiving-iv-2026@steaksgiving","DTSTAMP:20261107T000000Z",
+    `DTSTART:${EVENT.start}`,`DTEND:${EVENT.end}`,`SUMMARY:${EVENT.title}`,`LOCATION:${loc}`,
+    "DESCRIPTION:Look for the MEAT FLAG. "+location.origin+location.pathname,"END:VEVENT","END:VCALENDAR"].join("\r\n");
+  return "data:text/calendar;charset=utf-8,"+encodeURIComponent(ics);
+}
 async function loadList(){ const { data } = await sb.from("rsvps_public").select("*").order("created_at",{ascending:true}); list=data||[]; }
 async function refreshMine(){
   if(!mine?.token) return;
@@ -98,7 +169,7 @@ const headcount=r=>1+(r.guests||[]).length;
 
 function hero(){
   return `<div class="hero"><h1>🥩 STEAKSGIVING IV</h1><div class="sub">The fourth annual steak potluck, celebrating friendship and togetherness</div>
-    <div class="when">Friday, November 27 · Gladiola Studio</div></div>`;
+    <div class="when">Friday, November 27 · 6–10 PM<br>Gladiola Studio</div></div>`;
 }
 function stats(){
   const people=list.reduce((n,r)=>n+headcount(r),0);
@@ -173,11 +244,13 @@ function form(){
   const d=draft;
   return `<div class="card mine">
     <label>Your name</label><input id="nm" maxlength="40" placeholder="First name (last initial if there are two of you)" value="${esc(d.name)}" autocomplete="given-name">
+    <div class="warn" id="nmwarn">${nameWarn(d.name)}</div>
     <label>Bringing anyone? <span class="muted" style="font-weight:400">(names optional)</span></label>
     <div id="guests">${d.guests.map((g,i)=>`<div class="row"><input data-g="${i}" maxlength="40" placeholder="Guest ${i+1}" value="${esc(g)}"><button class="x" data-rg="${i}" aria-label="Remove">×</button></div>`).join("")}</div>
     <button class="link" id="addg">+ Add a person</button>
     <label>What are you bringing? <span class="muted" style="font-weight:400">(add as many as you like)</span></label>
-    <div id="dishes">${d.dishes.map((x,i)=>`<div class="row"><input data-d="${i}" maxlength="60" placeholder="e.g., Mac and cheese" value="${esc(x.name)}"><select data-c="${i}">${CATS.map(c=>`<option ${x.cat===c?"selected":""}>${c}</option>`).join("")}</select><button class="x" data-rd="${i}" aria-label="Remove">×</button></div>`).join("")}</div>
+    ${neededHTML()}
+    <div id="dishes">${d.dishes.map((x,i)=>`<div class="row"><input data-d="${i}" maxlength="60" placeholder="e.g., Green bean casserole" value="${esc(x.name)}"><select data-c="${i}">${CATS.map(c=>`<option ${x.cat===c?"selected":""}>${c}</option>`).join("")}</select><button class="x" data-rd="${i}" aria-label="Remove">×</button></div><div class="warn" data-dw="${i}">${dishWarn(x.name)}</div>`).join("")}</div>
     <button class="link" id="addd">+ Add a dish</button>
     <div style="height:12px"></div>
     <button class="btn" id="save">${mine?"Update my RSVP":"I'm in! Save RSVP"}</button>
@@ -196,7 +269,17 @@ function mineCard(){
     <div class="card mine"><b>Your RSVP</b>
       <div class="muted" style="margin-top:4px">${(mine.guests||[]).filter(g=>g&&g.trim()).length?`Guests: ${esc(mine.guests.filter(g=>g&&g.trim()).join(", "))}`:n?`+${n} guest${n>1?"s":""}`:"Just you"}</div>
       ${(mine.dishes||[]).length?`<div class="chips">${mine.dishes.map(d=>`<span class="chip"><i>${esc((d.cat||"").toUpperCase())}</i>${esc(d.name)}</span>`).join("")}</div>`:`<div class="muted">You haven't picked a dish yet.</div>`}
-      <div style="height:10px"></div><button class="btn sec" id="edit">Edit my RSVP</button></div>`;
+      <div style="height:10px"></div><button class="btn sec" id="edit">Edit my RSVP</button></div>
+    <div class="card details"><b>The details</b>
+      <div>📅 ${EVENT.when}</div>
+      <div>📍 ${evt?.address?`<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(evt.address)}" target="_blank" rel="noopener">${esc(evt.address)}</a>`:"Gladiola Studio"}</div>
+      <div class="flag">🥩🚩 Look for the <b>MEAT FLAG</b>. If you see it, you've found the steak. If you don't, you're at a vegan's house — keep driving.</div>
+      <a class="btn sec" style="display:block;text-align:center;text-decoration:none;margin-top:10px;box-sizing:border-box;border-radius:10px;padding:13px 16px;font-weight:700;color:var(--dark)" href="${icsHref()}" download="steaksgiving-iv.ics">📆 Add to calendar</a>
+    </div>
+    <div class="card"><b>Your edit link</b>
+      <div class="muted" style="margin-top:4px">Save this to change your RSVP later from any phone or computer.</div>
+      <div class="btnrow"><button class="sec" id="copylink">Copy link</button>${navigator.share?`<button class="sec" id="sharelink">Share…</button>`:""}</div>
+    </div>`;
 }
 
 function render(){
@@ -211,7 +294,8 @@ function render(){
     ${catSummary()}
     <div style="height:6px"></div>
     ${guestList()}
-    <p class="muted" style="text-align:center">Kirk's got the steak, mac and cheese, and dessert covered. Appetizers, veggie sides, bread, and drinks are the gaps to fill.</p>`;
+    <p class="muted" style="text-align:center">Kirk's got the steak and mac and cheese covered.</p>
+    ${showForm&&!H()?"":neededHTML()}`;
   wire();
 }
 function wire(){
@@ -234,6 +318,10 @@ function wire(){
     if(error) return toast(error.message);
     hostEdit=null; await loadList(); render(); toast("Saved");
   };
+  if($("nm")) $("nm").oninput=e=>{ $("nmwarn").innerHTML=nameWarn(e.target.value); };
+  app.querySelectorAll("[data-d]").forEach(el=>el.oninput=()=>{ const w=app.querySelector(`[data-dw="${el.dataset.d}"]`); if(w) w.innerHTML=dishWarn(el.value); });
+  if($("copylink")) $("copylink").onclick=async()=>{ try{ await navigator.clipboard.writeText(editLink()); toast("Link copied. Text it to yourself!"); }catch{ prompt("Copy your edit link:",editLink()); } };
+  if($("sharelink")) $("sharelink").onclick=async()=>{ try{ await navigator.share({title:"My Steaksgiving RSVP",text:"Edit my Steaksgiving IV RSVP:",url:editLink()}); }catch{} };
   if($("edit")) $("edit").onclick=()=>{ draft={name:mine.name,guests:[...(mine.guests||[])],dishes:(mine.dishes||[]).map(d=>({...d}))}; editing=true; render(); };
   if($("back")) $("back").onclick=()=>{ editing=false; render(); };
   if($("addg")) $("addg").onclick=()=>{ syncDraft(); if(draft.guests.length>=10) return toast("That's a lot of guests"); draft.guests.push(""); render(); setTimeout(()=>app.querySelector(`[data-g="${draft.guests.length-1}"]`)?.focus(),0); };
@@ -249,8 +337,9 @@ function wire(){
     $("save").disabled=true;
     const { data, error }=await sb.rpc("rsvp_save",{p_token:mine?.token??null,p_name:name,p_guests:guests,p_dishes:dishes});
     if(error){ toast("Couldn't save, try again"); $("save").disabled=false; return; }
+    const isNew=!mine;
     mine={id:data.id,token:data.token,name,guests,dishes}; localStorage.setItem("sg_rsvp",JSON.stringify({id:data.id,token:data.token}));
-    editing=false; await loadList(); render(); toast(mine?"Saved!":"You're in!");
+    editing=false; await Promise.all([loadList(), loadEvent()]); render(); toast(isNew?"You're in!":"Saved!");
     window.scrollTo({top:0,behavior:"smooth"});
   };
 }
@@ -259,8 +348,21 @@ function wire(){
   loadMine();
   await Promise.all([loadList(), refreshMine()]);
   if(mine && !mine.name){ mine=null; localStorage.removeItem("sg_rsvp"); }
+  await loadEvent();
   render();
-  sb.channel("rsvp-live").on("postgres_changes",{event:"*",schema:"public",table:"rsvps"},async()=>{ await loadList(); if(!editing && !hostEdit) render(); }).subscribe();
+  if(editTok && mine?.token!==editTok) toast("That edit link didn't work. Ask the host for help.");
+  sb.channel("rsvp-live").on("postgres_changes",{event:"*",schema:"public",table:"rsvps"},async()=>{
+    await loadList();
+    if(hostEdit) return;
+    if(!mine||editing){
+      // Form is open: keep what they've typed and where the cursor is.
+      syncDraft();
+      const a=document.activeElement, key=a&&(a.id?"#"+a.id:a.dataset?.d!=null?`[data-d="${a.dataset.d}"]`:a.dataset?.g!=null?`[data-g="${a.dataset.g}"]`:null);
+      const pos=key&&a.selectionStart;
+      render();
+      if(key){ const el=app.querySelector(key); if(el){ el.focus(); try{ el.setSelectionRange(pos,pos); }catch{} } }
+    } else render();
+  }).subscribe();
 })();
 </script>
 </body>
