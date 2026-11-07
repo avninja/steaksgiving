@@ -77,6 +77,11 @@
   .tvhist{display:flex;flex-wrap:wrap;justify-content:center;gap:1.5vh 1.5vw;padding:2vh 3vw 3vh;white-space:nowrap}
   .tvhist span{background:rgba(255,255,255,.15);border-radius:999px;padding:1vh 2vw;font-size:3vh;font-weight:700;flex:0 0 auto}
   .tvhist span b{opacity:.75;font-weight:800;margin-right:.6vw}
+  .tvqr{position:fixed;right:2.5vw;top:9vh;background:#fff;color:var(--dark);border-radius:2vh;padding:1.6vh;text-align:center;font-weight:800;font-size:2.4vh;line-height:1.25;box-shadow:0 1vh 3vh rgba(0,0,0,.35)}
+  .tvqr svg{display:block;width:20vh;height:20vh;margin:0 auto 1vh}
+  .tvqr small{display:block;font-weight:600;font-size:1.8vh;opacity:.7}
+  .closed{text-align:center;padding:26px 18px}
+  .closed .big{font-size:22px;padding:6px 0 10px}
   .tvbingo{font-size:5vh;font-weight:900;letter-spacing:.2em;opacity:.35}
   .tvsnd{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:4vh;padding:3vh 5vw;background:#fff;color:var(--red);border-radius:2vh;box-shadow:0 1vh 4vh rgba(0,0,0,.4)}
   .winner{background:var(--ok);color:#fff;border-radius:12px;padding:14px;text-align:center;font-weight:800;font-size:20px;margin:8px 0}
@@ -92,6 +97,7 @@
 <div class="wrap" id="app"><div class="center muted" style="padding:40px 0">Loading…</div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
 const SB_URL = "https://ntmbifttgdguxifgbrcc.supabase.co";
 const SB_KEY = "sb_publishable_8gHqh_eoL7Io2-3QvJ2kcA_2VB-C_7W";
@@ -102,6 +108,9 @@ const ROWS = ["RARE","MED RARE","MEDIUM","MED WELL","WELL DONE"];
 const app = document.getElementById("app");
 const isHost = new URLSearchParams(location.search).has("host");
 const isTV = new URLSearchParams(location.search).has("tv");
+const joinName = new URLSearchParams(location.search).get("name");
+let autoJoinTried = false;
+const PLAY_URL = location.origin + location.pathname;
 if(isTV) document.body.classList.add("tv");
 let game = null, deck = null;
 const toastEl = document.getElementById("toast");
@@ -178,12 +187,27 @@ async function joinScreen(){
     localStorage.setItem("sg_name", name);
     const board=makeBoard();
     const { data, error } = await sb.from("players").insert({name, round:game.round, board}).select().single();
-    if(error) return toast("Couldn't join, try again");
+    if(error) return toast(game.status==="open"?"Couldn't join, try again":"Steak Bingo isn't open right now");
     me={id:data.id,name,round:game.round,board,marks:Array(25).fill(false),claimed:false};
     saveMe(); playerScreen();
   };
+  if(joinName && !autoJoinTried){
+    autoJoinTried=true;
+    history.replaceState(null,"",location.pathname);
+    document.getElementById("nm").value=joinName.slice(0,24);
+    document.getElementById("go").click();
+  }
+}
+function closedScreen(){
+  const ended=game.status==="ended";
+  app.innerHTML=`<h1>🥩 STEAKSGIVING IV BINGO</h1>
+    <div class="card closed">${ended
+      ?`<div class="big">Thanks for playing Steak Bingo! 🥩</div><div class="muted">That's a wrap for tonight.</div>`
+      :`<div class="big">Steak Bingo starts at the party.</div><div class="muted">Watch your RSVP for the <b>Join Steak Bingo</b> button. It shows up when the host starts the game.</div>`}
+      <div style="height:14px"></div><a class="btn sec" style="display:block;text-decoration:none;text-align:center" href="../">Back to the RSVP page</a></div>`;
 }
 function playerScreen(){
+  if(game.status!=="open") return closedScreen();
   if(!me || me.round!==game.round) return joinScreen();
   const called=calledSet();
   const wins=winningLines(me.board, me.marks);
@@ -229,7 +253,18 @@ function tvScreen(){
   lastWinner=game.winner;
   const calls=game.calls||[], cur=calls[calls.length-1];
   const hist=calls.slice(0,-1).reverse().slice(0,8).map(c=>`<span><b>${c.n}</b>${esc(c.steak)} · ${esc(c.topping)}</span>`).join("");
+  const st=game.status;
+  let qr="";
+  if(st==="open" && typeof qrcode==="function"){ const q=qrcode(0,"M"); q.addData(PLAY_URL); q.make(); qr=q.createSvgTag({cellSize:4,margin:0,scalable:true}); }
+  if(st!=="open"){
+    app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span></span></div>
+      <div class="tvmain"><div class="tvbingo">STEAK BINGO</div><div class="tvwait">${st==="ended"?"Thanks for playing! 🥩":"Starts soon…"}</div></div>
+      ${soundOn?"":`<button id="snd" class="tvsnd">🔊 Tap once to enable the cow</button>`}`;
+    const s0=document.getElementById("snd"); if(s0) s0.onclick=()=>{ enableSound(); setTimeout(moo,400); };
+    return;
+  }
   app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span>ROUND ${game.round} · CALL ${calls.length} OF 75</span></div>
+    ${qr?`<div class="tvqr">${qr}Scan to play<small>${esc(PLAY_URL.replace(/^https?:\/\//,""))}</small></div>`:""}
     <div class="tvmain">${cur?`<div class="tvsteak">${esc(cur.steak)}</div><div class="tvtop2">${esc(cur.topping)}</div>`:`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Waiting for the first call…</div>`}
     ${game.winner?`<div class="tvwin">🏆 ${esc(game.winner)} has BINGO!</div>`:""}</div>
     <div class="tvhist">${hist}</div>
@@ -238,15 +273,13 @@ function tvScreen(){
 }
 
 /* ---------------- HOST ---------------- */
-let pin = sessionStorage.getItem("sg_pin")||"", claims=[], players=[], playerCount=0;
-async function hostLogin(){
-  app.innerHTML=`<h1>🥩 HOST SCREEN</h1><div class="card"><input id="pin" inputmode="numeric" placeholder="Host PIN" maxlength="4"><div style="height:10px"></div><button class="btn" id="go">Open host screen</button></div>`;
-  document.getElementById("go").onclick=async()=>{
-    const p=document.getElementById("pin").value.trim();
-    const { data } = await sb.rpc("check_pin",{p_pin:p});
-    if(!data) return toast("Wrong PIN");
-    pin=p; sessionStorage.setItem("sg_pin",p); await refreshHost(); hostScreen();
-  };
+// Hosts unlock this screen with their own RSVP link (saved on this device by the RSVP page).
+let hostTok=null, hostOK=false, claims=[], players=[], playerCount=0;
+try{ hostTok=JSON.parse(localStorage.getItem("sg_rsvp")||"null")?.token||null; }catch{ hostTok=null; }
+function hostLogin(){
+  app.innerHTML=`<h1>🥩 HOST SCREEN</h1><div class="card"><b>Hosts only</b>
+    <p class="muted">Open your host RSVP link on this device first (the link from "Your edit link" on the RSVP page), then come back here.</p>
+    <a class="btn" style="display:block;text-align:center;text-decoration:none" href="../">Go to the RSVP page</a></div>`;
 }
 async function refreshHost(){
   const [{ data: cl }, { data: pl }] = await Promise.all([
@@ -258,7 +291,12 @@ async function refreshHost(){
 function hostScreen(){
   const calls=game.calls||[], cur=calls[calls.length-1], called=calledSet();
   const pending=claims.filter(c=>c.status==="pending");
+  const st=game.status;
   app.innerHTML=`<h1>🥩 HOST · ROUND ${game.round}</h1>
+    <div class="card"><b>Steak Bingo is ${st==="open"?"OPEN":st==="ended"?"closed for the night":"not started yet"}</b>
+      <div class="muted" style="margin:4px 0 10px">${st==="open"?"Guests see a Join button on their RSVP, and the TV shows a QR code.":"Starting shows a Join button on every RSVP and opens boards."}</div>
+      <button class="btn ${st==="open"?"sec":""}" id="bstat">${st==="open"?"Close Bingo":"▶ Start Bingo"}</button>
+      <div class="row" style="margin-top:8px"><a class="btn sec" style="text-align:center;text-decoration:none;font-size:15px" href="../">RSVP page</a><a class="btn sec" style="text-align:center;text-decoration:none;font-size:15px" href="./?tv" target="_blank" rel="noopener">TV screen</a></div></div>
     ${game.winner?`<div class="winner">🏆 ${esc(game.winner)} wins round ${game.round}</div>`:""}
     <div class="callbar"><div class="lbl">CALL ${calls.length} OF 75 · ${playerCount} PLAYER${playerCount===1?"":"S"}</div>
       <div class="big">${cur?`<small>${esc(cur.steak)}</small>${esc(cur.topping)}`:"—"}</div></div>
@@ -274,7 +312,11 @@ function hostScreen(){
     <div class="card"><b>Players (${playerCount})</b>
       ${players.length?players.map(p=>`<div class="roster"><span class="${p.removed?"rm":""}">${esc(p.name)}<span class="muted"> · ${new Date(p.created_at).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</span></span>${p.removed?`<span class="muted">removed</span>`:`<button data-k="${p.id}" data-n="${esc(p.name)}">Remove</button>`}</div>`).join(""):`<div class="muted">Nobody has joined yet</div>`}</div>
     <div class="card"><b>Called so far</b><div class="muted">${calls.slice().reverse().map(c=>`${c.n}. ${esc(c.steak)}: ${esc(c.topping)}`).join("<br>")||"Nothing yet"}</div></div>`;
-  const act=async(fn,args,msg)=>{ const { error } = await sb.rpc(fn,{p_pin:pin,...args}); if(error) toast(error.message); else if(msg) toast(msg); };
+  const act=async(fn,args,msg)=>{ const { error } = await sb.rpc(fn,{p_token:hostTok,...args}); if(error) toast(error.message); else if(msg) toast(msg); };
+  document.getElementById("bstat").onclick=()=>{
+    if(st==="open"){ if(confirm("Close Steak Bingo for the night? Join buttons disappear and boards close.")) act("host_bingo_status",{p_status:"ended"},"Bingo closed"); }
+    else act("host_bingo_status",{p_status:"open"},"Steak Bingo is open!");
+  };
   document.getElementById("next").onclick=()=>act("host_next_call",{});
   document.getElementById("undo").onclick=()=>act("host_undo_call",{},"Undid last call");
   document.getElementById("newround").onclick=()=>{ if(confirm("Start a new round? Clears calls and gives everyone a fresh board.")) act("host_new_round",{},"New round started"); };
@@ -285,17 +327,17 @@ function hostScreen(){
 (async()=>{
   await Promise.all([loadGame(), loadDeck()]);
   loadMe();
-  const render=()=> isTV ? tvScreen() : isHost ? (pin?hostScreen():hostLogin()) : playerScreen();
+  const render=()=> isTV ? tvScreen() : isHost ? (hostOK?hostScreen():hostLogin()) : playerScreen();
   sb.channel("live")
     .on("postgres_changes",{event:"UPDATE",schema:"public",table:"game"},async p=>{
       const prevRound=game.round; game=p.new;
-      if(isHost && pin && (game.round!==prevRound)) await refreshHost();
+      if(isHost && hostOK && (game.round!==prevRound)) await refreshHost();
       if(!isHost && !isTV && me && game.round!==prevRound){ me=null; localStorage.removeItem("sg_player"); }
       render();
     })
-    .on("postgres_changes",{event:"*",schema:"public",table:"claims"},async()=>{ if(isHost&&pin){ await refreshHost(); render(); } })
+    .on("postgres_changes",{event:"*",schema:"public",table:"claims"},async()=>{ if(isHost&&hostOK){ await refreshHost(); render(); } })
     .on("postgres_changes",{event:"*",schema:"public",table:"players"},async p=>{
-      if(isHost&&pin){ await refreshHost(); render(); }
+      if(isHost&&hostOK){ await refreshHost(); render(); }
       else if(me && p.new && p.new.id===me.id && p.new.removed){ kicked(); }
     })
     .subscribe();
@@ -303,10 +345,10 @@ function hostScreen(){
   // Safety net if realtime drops: refresh every 15s
   setInterval(async()=>{
     const prev=JSON.stringify(game); await loadGame();
-    if(JSON.stringify(game)!==prev){ if(isHost&&pin) await refreshHost(); render(); }
-    if(!isHost && !isTV && me){ const { data } = await sb.from("players").select("removed").eq("id",me.id).maybeSingle(); if(!data || data.removed) kicked(); }
+    if(JSON.stringify(game)!==prev){ if(isHost&&hostOK) await refreshHost(); render(); }
+    if(!isHost && !isTV && me && game.status==="open"){ const { data } = await sb.from("players").select("removed").eq("id",me.id).maybeSingle(); if(!data || data.removed) kicked(); }
   },15000);
-  if(isHost && pin){ const { data } = await sb.rpc("check_pin",{p_pin:pin}); if(!data) pin=""; else await refreshHost(); }
+  if(isHost && hostTok){ const { data } = await sb.rpc("host_check",{p_token:hostTok}); hostOK=!!data; if(hostOK) await refreshHost(); }
   render();
 })();
 </script>
