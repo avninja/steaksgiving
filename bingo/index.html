@@ -66,23 +66,26 @@
   body:not(.tv) .claim.rejected>*{opacity:.65}
   body:not(.tv) .fixed{background:linear-gradient(transparent,rgba(40,6,8,.85) 35%)}
   /* TV mode */
-  body.tv{background:var(--red);color:#fff;overflow:hidden}
+  body.tv{background:linear-gradient(rgba(40,6,8,.3),rgba(40,6,8,.3)),url(../img/marbling.jpg) 0 0/900px repeat #5e0d12;color:#fff;overflow:hidden}
+  html:has(body.tv){background:#5e0d12}
   body.tv .wrap{max-width:none;padding:0;height:100vh;display:flex;flex-direction:column}
-  .tvtop{display:flex;justify-content:space-between;align-items:center;padding:2vh 3vw;font-size:3vh;font-weight:700;letter-spacing:.1em;opacity:.85}
+  .tvtop{display:flex;justify-content:space-between;align-items:center;padding:2vh 3vw;font-size:3vh;font-weight:700;letter-spacing:.1em;background:rgba(30,5,7,.82);box-shadow:0 .5vh 2vh rgba(0,0,0,.35)}
   .tvmain{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 4vw}
+  .tvpanel{background:rgba(30,5,7,.82);border-radius:3vh;padding:4vh 6vw;box-shadow:0 1vh 4vh rgba(0,0,0,.45);max-width:92vw}
   .tvsteak{font-size:18vh;font-weight:900;letter-spacing:.04em;line-height:1}
   .tvtop2{font-size:9vh;font-weight:700;margin-top:3vh;line-height:1.1}
   .tvwait{font-size:8vh;font-weight:700;opacity:.9}
   .tvwin{background:var(--ok);font-size:7vh;font-weight:900;padding:2vh 4vw;border-radius:2vh;margin-top:4vh}
   .tvhist{display:flex;flex-wrap:wrap;justify-content:center;gap:1.5vh 1.5vw;padding:2vh 3vw 3vh;white-space:nowrap}
-  .tvhist span{background:rgba(255,255,255,.15);border-radius:999px;padding:1vh 2vw;font-size:3vh;font-weight:700;flex:0 0 auto}
+  .hasqr .tvhist{padding-left:calc(2.5vw + 27vh)}
+  .tvhist span{background:rgba(30,5,7,.85);box-shadow:0 .4vh 1.2vh rgba(0,0,0,.35);border-radius:999px;padding:1vh 2vw;font-size:3vh;font-weight:700;flex:0 0 auto}
   .tvhist span b{opacity:.75;font-weight:800;margin-right:.6vw}
-  .tvqr{position:fixed;right:2.5vw;top:9vh;background:#fff;color:var(--dark);border-radius:2vh;padding:1.6vh;text-align:center;font-weight:800;font-size:2.4vh;line-height:1.25;box-shadow:0 1vh 3vh rgba(0,0,0,.35)}
+  .tvqr{position:fixed;left:2.5vw;bottom:3vh;background:#fff;color:var(--dark);border-radius:2vh;padding:1.6vh;text-align:center;font-weight:800;font-size:2.4vh;line-height:1.25;box-shadow:0 1vh 3vh rgba(0,0,0,.35)}
   .tvqr svg{display:block;width:20vh;height:20vh;margin:0 auto 1vh}
   .tvqr small{display:block;font-weight:600;font-size:1.8vh;opacity:.7}
   .closed{text-align:center;padding:26px 18px}
   .closed .big{font-size:22px;padding:6px 0 10px}
-  .tvbingo{font-size:5vh;font-weight:900;letter-spacing:.2em;opacity:.35}
+  .tvbingo{font-size:5vh;font-weight:900;letter-spacing:.2em;opacity:.6}
   .tvsnd{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:4vh;padding:3vh 5vw;background:#fff;color:var(--red);border-radius:2vh;box-shadow:0 1vh 4vh rgba(0,0,0,.4)}
   .winner{background:var(--ok);color:#fff;border-radius:12px;padding:14px;text-align:center;font-weight:800;font-size:20px;margin:8px 0}
   .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
@@ -256,16 +259,17 @@ function tvScreen(){
   const st=game.status;
   let qr="";
   if(st==="open" && typeof qrcode==="function"){ const q=qrcode(0,"M"); q.addData(PLAY_URL); q.make(); qr=q.createSvgTag({cellSize:4,margin:0,scalable:true}); }
+  app.classList.toggle("hasqr", !!qr);
   if(st!=="open"){
     app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span></span></div>
-      <div class="tvmain"><div class="tvbingo">STEAK BINGO</div><div class="tvwait">${st==="ended"?"Thanks for playing! 🥩":"Starts soon…"}</div></div>
+      <div class="tvmain"><div class="tvpanel"><div class="tvbingo">STEAK BINGO</div><div class="tvwait">${st==="ended"?"Thanks for playing! 🥩":"Starts soon…"}</div></div></div>
       ${soundOn?"":`<button id="snd" class="tvsnd">🔊 Tap once to enable the cow</button>`}`;
     const s0=document.getElementById("snd"); if(s0) s0.onclick=()=>{ enableSound(); setTimeout(moo,400); };
     return;
   }
   app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span>ROUND ${game.round} · CALL ${calls.length} OF 75</span></div>
     ${qr?`<div class="tvqr">${qr}Scan to play<small>${esc(PLAY_URL.replace(/^https?:\/\//,""))}</small></div>`:""}
-    <div class="tvmain">${cur?`<div class="tvsteak">${esc(cur.steak)}</div><div class="tvtop2">${esc(cur.topping)}</div>`:`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Waiting for the first call…</div>`}
+    <div class="tvmain"><div class="tvpanel">${cur?`<div class="tvsteak">${esc(cur.steak)}</div><div class="tvtop2">${esc(cur.topping)}</div>`:`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Waiting for the first call…</div>`}</div>
     ${game.winner?`<div class="tvwin">🏆 ${esc(game.winner)} has BINGO!</div>`:""}</div>
     <div class="tvhist">${hist}</div>
     ${soundOn?"":`<button id="snd" class="tvsnd">🔊 Tap once to enable the cow</button>`}`;
