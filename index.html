@@ -49,8 +49,21 @@
   .catsum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .catsum div{background:#fff;border:1px solid var(--tan);border-radius:10px;padding:8px;text-align:center;font-size:12px;color:var(--muted);font-weight:700}
   .catsum div b{display:block;font-size:20px;color:var(--dark)}
-  .hostrow{display:flex;justify-content:space-between;align-items:center}
-  .hostrow button{padding:6px 10px;font-size:12px}
+  .hostrow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .hostrow .acts{display:flex;gap:6px;flex:0 0 auto}
+  .hostrow .acts button{padding:7px 10px;font-size:12px}
+  .arr{background:var(--ok)!important;color:#fff!important}
+  .guest.arrived .nm::before{content:"✓ ";color:var(--ok)}
+  .hostbar{background:var(--dark);color:#fff;border-radius:12px;padding:12px 14px;margin:10px 0}
+  .hostbar b{font-size:15px}
+  .hostbar .row2{display:flex;gap:8px;margin-top:10px}
+  .hostbar .row2 button{flex:1;background:#fff;color:var(--dark);font-size:14px;padding:10px}
+  .target{height:10px;background:rgba(255,255,255,.2);border-radius:999px;overflow:hidden;margin-top:8px}
+  .target i{display:block;height:100%;background:#fff}
+  textarea{font:inherit;width:100%;padding:12px;border:2px solid var(--tan);border-radius:10px;font-size:15px;min-height:70px}
+  pre.roster{background:#fff;color:var(--dark);border:1px solid var(--tan);border-radius:10px;padding:12px;font-size:13px;white-space:pre-wrap;line-height:1.5;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .hnote{font-size:12px;color:#b36b00;font-weight:700;margin-top:4px}
+  @media print{.hero,.hostbar,.card.mine,h2,.stats,.catsum,.muted,.acts,button{display:none!important}pre.roster{border:0;font-size:14px}body{background:#fff}}
 </style>
 </head>
 <body>
@@ -68,6 +81,11 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 let list=[], mine=null, editing=false;
 // draft kept in memory while the form is open
 let draft={name:"",guests:[],dishes:[]};
+// host editing state
+const TARGET=20; // invites
+let hostEdit=null;   // {id|null, name, guests, dishes, host_note}
+let showRoster=false;
+const H=()=>isHost&&pin;
 
 function loadMine(){ try{ mine=JSON.parse(localStorage.getItem("sg_rsvp")||"null"); }catch{ mine=null; } }
 async function loadList(){ const { data } = await sb.from("rsvps_public").select("*").order("created_at",{ascending:true}); list=data||[]; }
@@ -98,9 +116,57 @@ function guestList(){
     const extras=(r.guests||[]).filter(g=>g&&g.trim());
     const plus=(r.guests||[]).length? ` <span class="plus">+${(r.guests||[]).length}${extras.length?` (${esc(extras.join(", "))})`:""}</span>`:"";
     const chips=(r.dishes||[]).length? `<div class="chips">${r.dishes.map(d=>`<span class="chip"><i>${esc((d.cat||"").toUpperCase())}</i>${esc(d.name)}</span>`).join("")}</div>`:`<div class="muted">Bringing: TBD</div>`;
-    const host=isHost&&pin?`<button class="sec" data-del="${r.id}" data-n="${esc(r.name)}">Remove</button>`:"";
-    return `<div class="guest ${mine&&mine.id===r.id?"":""}"><div class="hostrow"><span class="nm">${esc(r.name)}${plus}${mine&&mine.id===r.id?' <span class="plus">(you)</span>':""}</span>${host}</div>${chips}</div>`;
+    const host=H()?`<div class="acts"><button class="sec ${r.arrived?"arr":""}" data-arr="${r.id}" data-v="${r.arrived?0:1}">${r.arrived?"Here":"Arrived?"}</button><button class="sec" data-edit="${r.id}">Edit</button><button class="sec" data-del="${r.id}" data-n="${esc(r.name)}">✕</button></div>`:"";
+    const note=H()&&r.host_note?`<div class="hnote">Note: ${esc(r.host_note)}</div>`:"";
+    return `<div class="guest ${r.arrived&&H()?"arrived":""}"><div class="hostrow"><span class="nm">${esc(r.name)}${plus}${mine&&mine.id===r.id?' <span class="plus">(you)</span>':""}</span>${host}</div>${chips}${note}</div>`;
   }).join("")}</div>`;
+}
+
+/* ---- host tools ---- */
+function rosterText(){
+  const people=list.reduce((n,r)=>n+headcount(r),0);
+  const lines=[`STEAKSGIVING IV — ${list.length} RSVPs, ${people} people`,""];
+  list.forEach(r=>{
+    const g=(r.guests||[]); const names=g.filter(x=>x&&x.trim());
+    lines.push(`${r.arrived?"[x] ":"[ ] "}${r.name}${g.length?` +${g.length}${names.length?` (${names.join(", ")})`:""}`:""}`);
+    (r.dishes||[]).forEach(d=>lines.push(`      - ${d.name} (${d.cat})`));
+    if(r.host_note) lines.push(`      note: ${r.host_note}`);
+  });
+  lines.push("","BY CATEGORY");
+  const c={}; CATS.forEach(k=>c[k]=[]);
+  list.forEach(r=>(r.dishes||[]).forEach(d=>c[CATS.includes(d.cat)?d.cat:"Other"].push(`${d.name} (${r.name})`)));
+  CATS.forEach(k=>lines.push(`${k}: ${c[k].length?c[k].join("; "):"—"}`));
+  return lines.join("\n");
+}
+function hostBar(){
+  const people=list.reduce((n,r)=>n+headcount(r),0);
+  const here=list.filter(r=>r.arrived).reduce((n,r)=>n+headcount(r),0);
+  const pct=Math.min(100,Math.round(people/TARGET*100));
+  return `<div class="hostbar"><b>Host panel</b> · ${list.length} RSVPs · <b>${people}</b> of ${TARGET} invited${here?` · ${here} here`:""}
+    <div class="target"><i style="width:${pct}%"></i></div>
+    <div class="row2"><button id="hadd">+ Add RSVP for someone</button><button id="hroster">${showRoster?"Hide":"Show"} roster</button><button id="hcopy">Copy roster</button></div>
+    ${showRoster?`<pre class="roster" style="margin:10px 0 0">${esc(rosterText())}</pre>`:""}</div>`;
+}
+function hostForm(){
+  const d=hostEdit;
+  return `<div class="card mine"><b>${d.id?"Edit RSVP":"New RSVP (host)"}</b>
+    <label>Name</label><input id="hnm" maxlength="40" value="${esc(d.name)}">
+    <label>Additional people</label>
+    <div>${d.guests.map((g,i)=>`<div class="row"><input data-hg="${i}" maxlength="40" placeholder="Guest ${i+1}" value="${esc(g)}"><button class="x" data-hrg="${i}">×</button></div>`).join("")}</div>
+    <button class="link" id="haddg">+ Add a person</button>
+    <label>Dishes</label>
+    <div>${d.dishes.map((x,i)=>`<div class="row"><input data-hd="${i}" maxlength="60" value="${esc(x.name)}"><select data-hc="${i}">${CATS.map(c=>`<option ${x.cat===c?"selected":""}>${c}</option>`).join("")}</select><button class="x" data-hrd="${i}">×</button></div>`).join("")}</div>
+    <button class="link" id="haddd">+ Add a dish</button>
+    <label>Host-only note</label><textarea id="hnote" placeholder="e.g., texted me, bringing a cooler">${esc(d.host_note||"")}</textarea>
+    <div style="height:12px"></div><button class="btn" id="hsave">Save</button>
+    <div style="text-align:center;margin-top:8px"><button class="link" id="hcancel">Cancel</button></div></div>`;
+}
+function syncHost(){
+  hostEdit.name=document.getElementById("hnm")?.value??hostEdit.name;
+  hostEdit.host_note=document.getElementById("hnote")?.value??hostEdit.host_note;
+  app.querySelectorAll("[data-hg]").forEach(el=>hostEdit.guests[+el.dataset.hg]=el.value);
+  app.querySelectorAll("[data-hd]").forEach(el=>hostEdit.dishes[+el.dataset.hd].name=el.value);
+  app.querySelectorAll("[data-hc]").forEach(el=>hostEdit.dishes[+el.dataset.hc].cat=el.value);
 }
 
 function form(){
@@ -138,8 +204,8 @@ function render(){
   if(showForm && !editing && !draft.name && mine===null){ /* fresh */ }
   app.innerHTML=`${hero()}
     ${isHost&&!pin?`<div class="card"><label>Host PIN</label><input id="pin" inputmode="numeric" maxlength="4"><div style="height:8px"></div><button class="btn" id="pingo">Unlock host tools</button></div>`:""}
-    <h2>${showForm?(mine?"Edit your RSVP":"RSVP"):"You"}</h2>
-    ${showForm?form():mineCard()}
+    ${H()?hostBar():""}
+    ${H()&&hostEdit?hostForm():H()?"":`<h2>${showForm?(mine?"Edit your RSVP":"RSVP"):"You"}</h2>${showForm?form():mineCard()}`}
     <h2>Who's coming</h2>
     ${stats()}
     ${catSummary()}
@@ -152,6 +218,22 @@ function wire(){
   const $=id=>document.getElementById(id);
   if($("pingo")) $("pingo").onclick=async()=>{ const p=$("pin").value.trim(); const { data }=await sb.rpc("check_pin",{p_pin:p}); if(!data) return toast("Wrong PIN"); pin=p; sessionStorage.setItem("sg_pin",p); render(); };
   app.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{ if(!confirm(`Remove ${b.dataset.n}'s RSVP?`)) return; const { error }=await sb.rpc("host_rsvp_delete",{p_pin:pin,p_id:b.dataset.del}); if(error) toast(error.message); else { await loadList(); render(); } });
+  app.querySelectorAll("[data-arr]").forEach(b=>b.onclick=async()=>{ const { error }=await sb.rpc("host_rsvp_arrived",{p_pin:pin,p_id:b.dataset.arr,p_arrived:b.dataset.v==="1"}); if(error) toast(error.message); else { await loadList(); render(); } });
+  app.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{ const r=list.find(x=>x.id===b.dataset.edit); if(!r) return; hostEdit={id:r.id,name:r.name,guests:[...(r.guests||[])],dishes:(r.dishes||[]).map(d=>({...d})),host_note:r.host_note||""}; render(); window.scrollTo({top:0,behavior:"smooth"}); });
+  if($("hadd")) $("hadd").onclick=()=>{ hostEdit={id:null,name:"",guests:[],dishes:[],host_note:""}; render(); };
+  if($("hroster")) $("hroster").onclick=()=>{ showRoster=!showRoster; render(); };
+  if($("hcopy")) $("hcopy").onclick=async()=>{ try{ await navigator.clipboard.writeText(rosterText()); toast("Roster copied"); }catch{ showRoster=true; render(); toast("Long-press the roster to copy"); } };
+  if($("haddg")) $("haddg").onclick=()=>{ syncHost(); hostEdit.guests.push(""); render(); };
+  if($("haddd")) $("haddd").onclick=()=>{ syncHost(); hostEdit.dishes.push({name:"",cat:"Side"}); render(); };
+  app.querySelectorAll("[data-hrg]").forEach(b=>b.onclick=()=>{ syncHost(); hostEdit.guests.splice(+b.dataset.hrg,1); render(); });
+  app.querySelectorAll("[data-hrd]").forEach(b=>b.onclick=()=>{ syncHost(); hostEdit.dishes.splice(+b.dataset.hrd,1); render(); });
+  if($("hcancel")) $("hcancel").onclick=()=>{ hostEdit=null; render(); };
+  if($("hsave")) $("hsave").onclick=async()=>{
+    syncHost(); const name=hostEdit.name.trim(); if(!name) return toast("Need a name");
+    const { error }=await sb.rpc("host_rsvp_save",{p_pin:pin,p_id:hostEdit.id,p_name:name,p_guests:hostEdit.guests.map(g=>g.trim()),p_dishes:hostEdit.dishes.map(d=>({name:d.name.trim(),cat:d.cat})).filter(d=>d.name),p_host_note:hostEdit.host_note});
+    if(error) return toast(error.message);
+    hostEdit=null; await loadList(); render(); toast("Saved");
+  };
   if($("edit")) $("edit").onclick=()=>{ draft={name:mine.name,guests:[...(mine.guests||[])],dishes:(mine.dishes||[]).map(d=>({...d}))}; editing=true; render(); };
   if($("back")) $("back").onclick=()=>{ editing=false; render(); };
   if($("addg")) $("addg").onclick=()=>{ syncDraft(); if(draft.guests.length>=10) return toast("That's a lot of guests"); draft.guests.push(""); render(); setTimeout(()=>app.querySelector(`[data-g="${draft.guests.length-1}"]`)?.focus(),0); };
@@ -178,7 +260,7 @@ function wire(){
   await Promise.all([loadList(), refreshMine()]);
   if(mine && !mine.name){ mine=null; localStorage.removeItem("sg_rsvp"); }
   render();
-  sb.channel("rsvp-live").on("postgres_changes",{event:"*",schema:"public",table:"rsvps"},async()=>{ await loadList(); if(!editing) render(); }).subscribe();
+  sb.channel("rsvp-live").on("postgres_changes",{event:"*",schema:"public",table:"rsvps"},async()=>{ await loadList(); if(!editing && !hostEdit) render(); }).subscribe();
 })();
 </script>
 </body>
