@@ -49,7 +49,7 @@
   .ok{background:var(--ok);color:#fff;border-radius:12px;padding:12px 14px;font-weight:700;text-align:center;margin:10px 0}
   .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
   .toast.show{opacity:1}
-  .catsum{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .catsum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .catsum div{background:#fff;border:1px solid var(--tan);border-radius:10px;padding:8px;text-align:center;font-size:12px;color:var(--muted);font-weight:700}
   .catsum div b{display:block;font-size:20px;color:var(--dark)}
   .hostrow{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -91,7 +91,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 const sb = supabase.createClient("https://ntmbifttgdguxifgbrcc.supabase.co", "sb_publishable_8gHqh_eoL7Io2-3QvJ2kcA_2VB-C_7W");
-const CATS=["Main","Appetizer","Side","Bread","Dessert","Drinks","Other"];
+const CATS=["Main","Appetizer","Side","Bread","Dessert","Other"];
 const app=document.getElementById("app"), toastEl=document.getElementById("toast");
 const toast=m=>{ toastEl.textContent=m; toastEl.classList.add("show"); setTimeout(()=>toastEl.classList.remove("show"),2400); };
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -138,9 +138,9 @@ function dishTaken(name){
   for(const r of list){ if(r.id===mine?.id) continue; for(const d of (r.dishes||[])) if(norm(d.name)===n) return {who:r.name,name:d.name}; }
   return null;
 }
-// "Still needed": targets grow with headcount. Sides/apps ~1 per 6 people; bread/drinks/dessert ~1 per 10.
-const PER={Appetizer:6,Side:6,Bread:10,Drinks:10,Dessert:10};
-const PLURAL={Appetizer:"appetizers",Side:"sides",Bread:"breads",Drinks:"drinks",Dessert:"desserts"};
+// "Still needed": targets grow with headcount. Sides/apps ~1 per 6 people; bread/dessert ~1 per 10. (Drinks are BYOB.)
+const PER={Appetizer:6,Side:6,Bread:10,Dessert:10};
+const PLURAL={Appetizer:"appetizers",Side:"sides",Bread:"breads",Dessert:"desserts"};
 function stillNeeded(){
   const people=list.reduce((n,r)=>n+headcount(r),0);
   const have={}; list.forEach(r=>(r.dishes||[]).forEach(d=>{ have[d.cat]=(have[d.cat]||0)+1; }));
@@ -149,7 +149,7 @@ function stillNeeded(){
 function neededHTML(){
   const need=stillNeeded();
   if(!need.length) return `<div class="need">Every category is covered. Bring whatever you love.</div>`;
-  return `<div class="need"><b>Still needed:</b> ${need.map(([c,n])=>n>1?`${n} more ${PLURAL[c]}`:c==="Drinks"?"drinks":c.toLowerCase()).join(", ")}</div>`;
+  return `<div class="need"><b>Still needed:</b> ${need.map(([c,n])=>n>1?`${n} more ${PLURAL[c]}`:c.toLowerCase()).join(", ")}</div>`;
 }
 function nameWarn(name){
   const r=nameTaken(name); if(!r) return "";
@@ -290,6 +290,7 @@ function mineCard(){
       <div style="height:10px"></div><button class="btn sec" id="edit">Edit my RSVP</button></div>
     <div class="card details"><b>The details</b>
       <div>📅 ${EVENT.when}</div>
+      <div>🍺 <b>BYOB</b>: bring whatever you'd like to drink.</div>
       <div>📍 ${evt?.address?`<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(evt.address)}" target="_blank" rel="noopener">${esc(evt.address)}</a>`:"Gladiola Studio"}</div>
       <div class="flag">🥩🚩 Look for the <b>MEAT FLAG</b>. If you see it, you've found the steak. If you don't, you're at a vegan's house — keep driving.</div>
       <a class="btn sec" style="display:block;text-align:center;text-decoration:none;margin-top:10px;box-sizing:border-box;border-radius:10px;padding:13px 16px;font-weight:700;color:var(--dark)" href="${icsHref()}" download="steaksgiving-iv.ics">📆 Add to calendar</a>
