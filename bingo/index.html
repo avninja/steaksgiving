@@ -85,6 +85,8 @@
   .tvqr small{display:block;font-weight:600;font-size:1.8vh;opacity:.7}
   .closed{text-align:center;padding:26px 18px}
   .closed .big{font-size:22px;padding:6px 0 10px}
+  .tvwelcome{white-space:nowrap;font-size:min(13vh,6.4vw);font-weight:900;letter-spacing:.03em;line-height:1.05;margin-top:1vh}
+  .tvwsub{font-size:4.6vh;font-weight:600;line-height:1.3;margin-top:3vh;opacity:.92}
   .tvbingo{font-size:5vh;font-weight:900;letter-spacing:.2em;opacity:.6}
   .tvsnd{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:4vh;padding:3vh 5vw;background:#fff;color:var(--red);border-radius:2vh;box-shadow:0 1vh 4vh rgba(0,0,0,.4)}
   .winner{background:var(--ok);color:#fff;border-radius:12px;padding:14px;text-align:center;font-weight:800;font-size:20px;margin:8px 0}
@@ -280,7 +282,9 @@ function tvScreen(){
   app.classList.toggle("hasqr", !!qr);
   if(st!=="open"){
     app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span></span></div>
-      <div class="tvmain"><div class="tvpanel"><div class="tvbingo">STEAK BINGO</div><div class="tvwait">${st==="ended"?"Thanks for playing! 🥩":"Starts soon…"}</div></div></div>
+      <div class="tvmain"><div class="tvpanel">${st==="ended"
+        ?`<div class="tvbingo">WELCOME TO</div><div class="tvwelcome">🥩 STEAKSGIVING IV</div><div class="tvwsub">The fourth annual steak potluck,<br>celebrating friendship and togetherness</div>`
+        :`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Starts soon…</div>`}</div></div>
 `;
     syncSoundButton();
     return;
