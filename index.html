@@ -105,6 +105,7 @@ let showRoster=false;
 // Hosts are RSVPs flagged is_host; their own RSVP link unlocks host tools.
 const H=()=>!!mine?.is_host;
 let bingo=null; // {status, round}
+let declined=[]; // hosts only: RSVPs marked "can't make it"
 
 // Event details. The street address is NOT in this file: it comes from the
 // rsvp_event RPC, which only returns it for a valid RSVP token.
@@ -173,7 +174,8 @@ async function loadList(){
     const { data: hx } = await sb.rpc("host_list",{p_token:mine.token});
     const by={}; (hx||[]).forEach(x=>by[x.id]=x);
     list=list.map(r=>({...r, arrived:by[r.id]?.arrived||false, host_note:by[r.id]?.host_note||null}));
-  }
+    declined=(hx||[]).filter(x=>x.attending===false);
+  } else declined=[];
 }
 async function loadBingo(){ const { data } = await sb.from("game").select("status,round").eq("id",1).maybeSingle(); bingo=data||null; }
 async function refreshMine(){
@@ -219,6 +221,7 @@ function rosterText(){
     (r.dishes||[]).forEach(d=>lines.push(`      - ${d.name} (${d.cat})`));
     if(r.host_note) lines.push(`      note: ${r.host_note}`);
   });
+  if(declined.length) lines.push("",`CAN'T MAKE IT (${declined.length}): ${declined.map(d=>d.name).join(", ")}`);
   lines.push("","BY CATEGORY");
   const c={}; CATS.forEach(k=>c[k]=[]);
   list.forEach(r=>(r.dishes||[]).forEach(d=>c[CATS.includes(d.cat)?d.cat:"Other"].push(`${d.name} (${r.name})`)));
@@ -229,7 +232,8 @@ function hostBar(){
   const people=list.reduce((n,r)=>n+headcount(r),0);
   const here=list.filter(r=>r.arrived).reduce((n,r)=>n+headcount(r),0);
   const pct=Math.min(100,Math.round(people/TARGET*100));
-  return `<div class="hostbar"><b>Host panel</b> · ${list.length} RSVPs · <b>${people}</b> of ${TARGET} invited${here?` · ${here} here`:""}
+  const noAns=Math.max(0,TARGET-people-declined.length);
+  return `<div class="hostbar"><b>Host panel</b> · <b>${people}</b> coming · ${declined.length} can't · ${noAns} haven't answered (of ${TARGET})${here?` · ${here} here`:""}
     <div class="target"><i style="width:${pct}%"></i></div>
     <div class="row2"><button id="hadd">+ Add RSVP for someone</button><button id="hroster">${showRoster?"Hide":"Show"} roster</button><button id="hcopy">Copy roster</button></div>
     <div style="margin-top:12px"><b>Steak Bingo</b> · ${bingo?.status==="open"?"OPEN (Join buttons are showing)":bingo?.status==="ended"?"closed for the night":"not started"}</div>
@@ -271,8 +275,10 @@ function form(){
     <div id="dishes">${d.dishes.map((x,i)=>`<div class="row"><input data-d="${i}" maxlength="60" placeholder="e.g., Green bean casserole" value="${esc(x.name)}"><select data-c="${i}">${CATS.map(c=>`<option ${x.cat===c?"selected":""}>${c}</option>`).join("")}</select><button class="x" data-rd="${i}" aria-label="Remove">×</button></div><div class="warn" data-dw="${i}">${dishWarn(x.name)}</div>`).join("")}</div>
     <button class="link" id="addd">+ Add a dish</button>
     <div style="height:12px"></div>
-    <button class="btn" id="save">${mine?"Update my RSVP":"I'm in! Save RSVP"}</button>
-    ${mine?`<div style="text-align:center;margin-top:8px"><button class="link" id="cancel">Can't make it after all</button> · <button class="link" id="back">Back</button></div>`:""}
+    <button class="btn" id="save">${mine&&mine.attending!==false?"Update my RSVP":"I'm in! Save RSVP"}</button>
+    ${!mine?`<button class="btn sec" id="decline" style="margin-top:8px">Can't make it</button>`
+      :mine.attending===false?`<div style="text-align:center;margin-top:8px"><button class="link" id="back">Back</button></div>`
+      :`<div style="text-align:center;margin-top:8px"><button class="link" id="cancel">Can't make it after all</button> · <button class="link" id="back">Back</button></div>`}
   </div>`;
 }
 function syncDraft(){
@@ -281,7 +287,22 @@ function syncDraft(){
   app.querySelectorAll("[data-d]").forEach(el=>draft.dishes[+el.dataset.d].name=el.value);
   app.querySelectorAll("[data-c]").forEach(el=>draft.dishes[+el.dataset.c].cat=el.value);
 }
+function editLinkCard(){
+  return `<div class="card"><b>Your edit link</b>
+      <div class="muted" style="margin-top:4px">Save this to change your RSVP later from any phone or computer.</div>
+      ${H()?`<div class="hwarn">🔑 You're a host: this link also unlocks host tools. Don't forward it.</div>`:""}
+      <div class="btnrow"><button class="sec" id="copylink">Copy link</button>${navigator.share?`<button class="sec" id="sharelink">Share…</button>`:""}</div>
+    </div>`;
+}
+function declinedCard(){
+  return `<div class="ok" style="background:#6d4c41">😢 Sorry you'll miss it, ${esc(mine.name)}.</div>
+    <div class="card mine"><b>Your RSVP: can't make it</b>
+      <div class="muted" style="margin-top:4px">Thanks for letting us know. Plans changed? You can still come.</div>
+      <div style="height:10px"></div><button class="btn" id="rejoin">I can come after all!</button></div>
+    ${editLinkCard()}`;
+}
 function mineCard(){
+  if(mine.attending===false) return declinedCard();
   const n=(mine.guests||[]).length;
   return `<div class="ok">✅ You're in${n?` with ${n} guest${n>1?"s":""}`:""}, ${esc(mine.name)}!</div>
     <div class="card mine"><b>Your RSVP</b>
@@ -296,11 +317,12 @@ function mineCard(){
       <a class="btn sec" style="display:block;text-align:center;text-decoration:none;margin-top:10px;box-sizing:border-box;border-radius:10px;padding:13px 16px;font-weight:700;color:var(--dark)" href="${icsHref()}" download="steaksgiving-iv.ics">📆 Add to calendar</a>
     </div>
     ${bingoCard()}
-    <div class="card"><b>Your edit link</b>
-      <div class="muted" style="margin-top:4px">Save this to change your RSVP later from any phone or computer.</div>
-      ${H()?`<div class="hwarn">🔑 You're a host: this link also unlocks host tools. Don't forward it.</div>`:""}
-      <div class="btnrow"><button class="sec" id="copylink">Copy link</button>${navigator.share?`<button class="sec" id="sharelink">Share…</button>`:""}</div>
-    </div>`;
+    ${editLinkCard()}`;
+}
+function declinedList(){
+  if(!H()||!declined.length) return "";
+  return `<h2>Can't make it (${declined.length})</h2><div class="card">${declined.map(d=>`<div class="guest"><span class="nm">${esc(d.name)}${d.is_host?'<span class="hbadge">HOST</span>':""}</span>
+    <div class="muted">Said no ${new Date(d.updated_at).toLocaleDateString([], {month:"short",day:"numeric"})}${d.host_note?` · Note: ${esc(d.host_note)}`:""}</div></div>`).join("")}</div>`;
 }
 
 function bingoCard(){
@@ -316,13 +338,14 @@ function render(){
   const showForm=!mine||editing;
   if(showForm && !editing && !draft.name && mine===null){ /* fresh */ }
   app.innerHTML=`${hero()}
-    ${H()&&hostEdit?hostForm():`<h2>${showForm?(mine?"Edit your RSVP":"RSVP"):"You"}</h2>${showForm?form():mineCard()}`}
+    ${H()&&hostEdit?hostForm():`<h2>${showForm?(mine&&mine.attending!==false?"Edit your RSVP":"RSVP"):"You"}</h2>${showForm?form():mineCard()}`}
     ${H()?`<h2>Host tools</h2>${hostBar()}`:""}
     <h2>Who's coming</h2>
     ${stats()}
     ${catSummary()}
     <div style="height:6px"></div>
     ${guestList()}
+    ${declinedList()}
     ${showForm?"":neededHTML()}`;
   wire();
 }
@@ -370,16 +393,32 @@ function wire(){
   if($("addd")) $("addd").onclick=()=>{ syncDraft(); if(draft.dishes.length>=10) return toast("Save some for everyone else"); draft.dishes.push({name:"",cat:"Side"}); render(); setTimeout(()=>app.querySelector(`[data-d="${draft.dishes.length-1}"]`)?.focus(),0); };
   app.querySelectorAll("[data-rg]").forEach(b=>b.onclick=()=>{ syncDraft(); draft.guests.splice(+b.dataset.rg,1); render(); });
   app.querySelectorAll("[data-rd]").forEach(b=>b.onclick=()=>{ syncDraft(); draft.dishes.splice(+b.dataset.rd,1); render(); });
-  if($("cancel")) $("cancel").onclick=async()=>{ if(!confirm("Cancel your RSVP?")) return; const { error:ce }=await sb.rpc("rsvp_cancel",{p_token:mine.token}); if(ce) return toast(ce.message); mine=null; editing=false; draft={name:"",guests:[],dishes:[]}; localStorage.removeItem("sg_rsvp"); await loadList(); render(); toast("RSVP cancelled. We'll miss you."); };
+  if($("cancel")) $("cancel").onclick=async()=>{
+    if(!confirm("Mark yourself as can't make it? You can change your mind later.")) return;
+    const { error:ce }=await sb.rpc("rsvp_decline",{p_token:mine.token}); if(ce) return toast(ce.message);
+    editing=false; await refreshMine(); await Promise.all([loadList(), loadEvent()]); render(); toast("Got it. We'll miss you!");
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
+  if($("rejoin")) $("rejoin").onclick=()=>{ draft={name:mine.name,guests:[],dishes:[]}; editing=true; render(); };
+  if($("decline")) $("decline").onclick=async()=>{
+    syncDraft();
+    const name=draft.name.trim(); if(!name){ toast("Add your name first"); return $("nm").focus(); }
+    $("decline").disabled=true;
+    const { data, error }=await sb.rpc("rsvp_save",{p_token:null,p_name:name,p_guests:[],p_dishes:[],p_attending:false});
+    if(error){ toast("Couldn't save, try again"); $("decline").disabled=false; return; }
+    mine={id:data.id,token:data.token,name}; localStorage.setItem("sg_rsvp",JSON.stringify({id:data.id,token:data.token}));
+    editing=false; await refreshMine(); await Promise.all([loadList(), loadEvent()]); render(); toast("Thanks for letting us know!");
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
   if($("save")) $("save").onclick=async()=>{
     syncDraft();
     const name=draft.name.trim(); if(!name) return toast("Need your name");
     const guests=draft.guests.map(g=>g.trim());
     const dishes=draft.dishes.map(d=>({name:d.name.trim(),cat:d.cat})).filter(d=>d.name);
     $("save").disabled=true;
-    const { data, error }=await sb.rpc("rsvp_save",{p_token:mine?.token??null,p_name:name,p_guests:guests,p_dishes:dishes});
+    const { data, error }=await sb.rpc("rsvp_save",{p_token:mine?.token??null,p_name:name,p_guests:guests,p_dishes:dishes,p_attending:true});
     if(error){ toast("Couldn't save, try again"); $("save").disabled=false; return; }
-    const isNew=!mine;
+    const isNew=!mine||mine.attending===false;
     mine={...(mine||{}),id:data.id,token:data.token,name,guests,dishes}; localStorage.setItem("sg_rsvp",JSON.stringify({id:data.id,token:data.token}));
     editing=false; await refreshMine(); await Promise.all([loadList(), loadEvent()]); render(); toast(isNew?"You're in!":"Saved!");
     window.scrollTo({top:0,behavior:"smooth"});
