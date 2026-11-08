@@ -238,37 +238,35 @@ function playerScreen(){
 }
 
 /* ---------------- TV ---------------- */
-// Moo sound. Browsers only allow audio after a tap on THIS page load, so the
-// "Tap once" button shows on every load (never remembered) and comes back if
-// the browser suspends audio (e.g. the TV went to sleep). Web Audio is used so
-// that, once unlocked, a moo can play at any later time.
+// Moo sound. Browsers (iPhone especially) only allow audio after a tap on THIS
+// page load. The tap plays a real moo through one <audio> element, which
+// unlocks that element for the rest of the night; every later moo reuses it.
+// (Plain media playback also isn't muted by the iPhone silent switch.)
+// The tap button shows on every load and comes back if a moo is ever blocked.
+const SOUND_VERSION="sound v3";
 try{ localStorage.removeItem("sg_tv_sound"); }catch{}
-let actx=null, mooBufs=[], lastMoo=-1, lastWinKey;
-const soundReady=()=>!!(actx && actx.state==="running" && mooBufs.length);
-async function loadMoos(){
-  mooBufs=(await Promise.all([1,2,3,4,5].map(async i=>{
-    try{ const r=await fetch("moo/moo"+i+".mp3"); return await actx.decodeAudioData(await r.arrayBuffer()); }catch{ return null; }
-  }))).filter(Boolean);
+try{ if(navigator.audioSession) navigator.audioSession.type="playback"; }catch{}
+const MOO_SRC=[1,2,3,4,5].map(i=>"moo/moo"+i+".mp3");
+const mooEl=new Audio(); mooEl.preload="auto"; mooEl.setAttribute("playsinline","");
+let soundOK=false, lastMoo=-1, lastWinKey;
+function pickMoo(){ let i; do { i=Math.floor(Math.random()*MOO_SRC.length); } while(i===lastMoo && MOO_SRC.length>1); lastMoo=i; return MOO_SRC[i]; }
+function playMoo(){
+  mooEl.src=pickMoo(); mooEl.currentTime=0;
+  const pr=mooEl.play();
+  return (pr&&pr.then?pr:Promise.resolve()).then(()=>{ soundOK=true; syncSoundButton(); return true; })
+    .catch(e=>{ soundOK=false; syncSoundButton(); toast("Sound blocked ("+(e&&e.name||"error")+"). Tap the cow button."); return false; });
 }
-function enableSound(){
-  // Create/resume the audio context synchronously inside the tap.
-  if(!actx){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return toast("This browser can't play sound"); actx=new AC(); }
-  const resumed=actx.resume();
-  (async()=>{ await resumed; if(!mooBufs.length) await loadMoos(); syncSoundButton(); if(soundReady()) moo(); else toast("Couldn't turn on sound. Tap again."); })();
-}
-function moo(){
-  if(!soundReady()){ syncSoundButton(); return false; }
-  let i; do { i=Math.floor(Math.random()*mooBufs.length); } while(i===lastMoo && mooBufs.length>1);
-  lastMoo=i; const src=actx.createBufferSource(); src.buffer=mooBufs[i]; src.connect(actx.destination); src.start();
-  return true;
-}
+function enableSound(){ playMoo(); }   // must run directly inside the tap
+function moo(){ if(!soundOK){ syncSoundButton(); return false; } playMoo(); return true; }
 function syncSoundButton(){
   if(!isTV) return;
+  let v=document.getElementById("sndv");
+  if(!v){ v=document.createElement("div"); v.id="sndv"; v.style.cssText="position:fixed;right:1vw;bottom:.6vh;font-size:1.4vh;opacity:.45;color:#fff;z-index:5"; document.body.appendChild(v); }
+  v.textContent=SOUND_VERSION+(soundOK?" · on":" · off");
   let b=document.getElementById("snd");
-  if(soundReady()){ if(b) b.remove(); return; }
+  if(soundOK){ if(b) b.remove(); return; }
   if(!b){ b=document.createElement("button"); b.id="snd"; b.className="tvsnd"; b.textContent="🔊 Tap once to enable the cow"; b.onclick=enableSound; document.body.appendChild(b); }
 }
-document.addEventListener("visibilitychange",()=>{ if(actx && document.visibilityState==="visible") actx.resume().finally(syncSoundButton); });
 function tvScreen(){
   // Moo once per new winner (per round). Don't moo for a winner already showing when the TV loads.
   const winKey=game.winner?game.round+"|"+game.winner:null;
