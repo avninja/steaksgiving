@@ -238,22 +238,42 @@ function playerScreen(){
 }
 
 /* ---------------- TV ---------------- */
-let soundOn=localStorage.getItem("sg_tv_sound")==="1", lastWinner=null;
-const MOOS=[1,2,3,4,5].map(i=>{ const a=new Audio("moo/moo"+i+".mp3"); a.preload="auto"; return a; });
-let lastMoo=-1;
-function moo(){
-  let i; do { i=Math.floor(Math.random()*MOOS.length); } while(i===lastMoo && MOOS.length>1);
-  lastMoo=i; const a=MOOS[i]; a.currentTime=0; a.play().catch(()=>{});
+// Moo sound. Browsers only allow audio after a tap on THIS page load, so the
+// "Tap once" button shows on every load (never remembered) and comes back if
+// the browser suspends audio (e.g. the TV went to sleep). Web Audio is used so
+// that, once unlocked, a moo can play at any later time.
+try{ localStorage.removeItem("sg_tv_sound"); }catch{}
+let actx=null, mooBufs=[], lastMoo=-1, lastWinKey;
+const soundReady=()=>!!(actx && actx.state==="running" && mooBufs.length);
+async function loadMoos(){
+  mooBufs=(await Promise.all([1,2,3,4,5].map(async i=>{
+    try{ const r=await fetch("moo/moo"+i+".mp3"); return await actx.decodeAudioData(await r.arrayBuffer()); }catch{ return null; }
+  }))).filter(Boolean);
 }
 function enableSound(){
-  soundOn=true; localStorage.setItem("sg_tv_sound","1");
-  // unlock every clip on the user gesture so later auto-plays are allowed on phones/TV browsers
-  MOOS.forEach(a=>{ a.muted=true; a.play().then(()=>{ a.pause(); a.currentTime=0; a.muted=false; }).catch(()=>{ a.muted=false; }); });
-  const b=document.getElementById("snd"); if(b) b.remove();
+  // Create/resume the audio context synchronously inside the tap.
+  if(!actx){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return toast("This browser can't play sound"); actx=new AC(); }
+  const resumed=actx.resume();
+  (async()=>{ await resumed; if(!mooBufs.length) await loadMoos(); syncSoundButton(); if(soundReady()) moo(); else toast("Couldn't turn on sound. Tap again."); })();
 }
+function moo(){
+  if(!soundReady()){ syncSoundButton(); return false; }
+  let i; do { i=Math.floor(Math.random()*mooBufs.length); } while(i===lastMoo && mooBufs.length>1);
+  lastMoo=i; const src=actx.createBufferSource(); src.buffer=mooBufs[i]; src.connect(actx.destination); src.start();
+  return true;
+}
+function syncSoundButton(){
+  if(!isTV) return;
+  let b=document.getElementById("snd");
+  if(soundReady()){ if(b) b.remove(); return; }
+  if(!b){ b=document.createElement("button"); b.id="snd"; b.className="tvsnd"; b.textContent="🔊 Tap once to enable the cow"; b.onclick=enableSound; document.body.appendChild(b); }
+}
+document.addEventListener("visibilitychange",()=>{ if(actx && document.visibilityState==="visible") actx.resume().finally(syncSoundButton); });
 function tvScreen(){
-  if(game.winner && game.winner!==lastWinner && soundOn){ moo(); }
-  lastWinner=game.winner;
+  // Moo once per new winner (per round). Don't moo for a winner already showing when the TV loads.
+  const winKey=game.winner?game.round+"|"+game.winner:null;
+  if(lastWinKey!==undefined && winKey && winKey!==lastWinKey) moo();
+  lastWinKey=winKey;
   const calls=game.calls||[], cur=calls[calls.length-1];
   const hist=calls.slice(0,-1).reverse().slice(0,8).map(c=>`<span><b>${c.n}</b>${esc(c.steak)} · ${esc(c.topping)}</span>`).join("");
   const st=game.status;
@@ -263,17 +283,16 @@ function tvScreen(){
   if(st!=="open"){
     app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span></span></div>
       <div class="tvmain"><div class="tvpanel"><div class="tvbingo">STEAK BINGO</div><div class="tvwait">${st==="ended"?"Thanks for playing! 🥩":"Starts soon…"}</div></div></div>
-      ${soundOn?"":`<button id="snd" class="tvsnd">🔊 Tap once to enable the cow</button>`}`;
-    const s0=document.getElementById("snd"); if(s0) s0.onclick=()=>{ enableSound(); setTimeout(moo,400); };
+`;
+    syncSoundButton();
     return;
   }
   app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span>ROUND ${game.round} · CALL ${calls.length} OF 75</span></div>
     ${qr?`<div class="tvqr">${qr}Scan to play<small>${esc(PLAY_URL.replace(/^https?:\/\//,""))}</small></div>`:""}
     <div class="tvmain"><div class="tvpanel">${cur?`<div class="tvsteak">${esc(cur.steak)}</div><div class="tvtop2">${esc(cur.topping)}</div>`:`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Waiting for the first call…</div>`}</div>
     ${game.winner?`<div class="tvwin">🏆 ${esc(game.winner)} has BINGO!</div>`:""}</div>
-    <div class="tvhist">${hist}</div>
-    ${soundOn?"":`<button id="snd" class="tvsnd">🔊 Tap once to enable the cow</button>`}`;
-  const s=document.getElementById("snd"); if(s) s.onclick=()=>{ enableSound(); setTimeout(moo,400); };
+    <div class="tvhist">${hist}</div>`;
+  syncSoundButton();
 }
 
 /* ---------------- HOST ---------------- */
