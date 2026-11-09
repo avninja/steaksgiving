@@ -193,7 +193,7 @@ async function joinScreen(){
     const board=makeBoard();
     const { data, error } = await sb.from("players").insert({name, round:game.round, board}).select().single();
     if(error) return toast(game.status==="open"?"Couldn't join, try again":"Steak Bingo isn't open right now");
-    me={id:data.id,name,round:game.round,board,marks:Array(25).fill(false),claimed:false};
+    me={id:data.id,name,round:game.round,game:game.started_at,board,marks:Array(25).fill(false),claimed:false};
     saveMe(); playerScreen();
   };
   if(joinName && !autoJoinTried){
@@ -203,17 +203,17 @@ async function joinScreen(){
     document.getElementById("go").click();
   }
 }
+// A saved board belongs to one game (started_at) and round; drop it quietly once that game is over.
+function dropStaleMe(){ if(me && (me.round!==game.round || me.game!==game.started_at)){ me=null; localStorage.removeItem("sg_player"); } }
 function closedScreen(){
-  const ended=game.status==="ended";
   app.innerHTML=`<h1>🥩 STEAKSGIVING IV BINGO</h1>
-    <div class="card closed">${ended
-      ?`<div class="big">Thanks for playing Steak Bingo! 🥩</div><div class="muted">That's a wrap for tonight.</div>`
-      :`<div class="big">Steak Bingo starts at the party.</div><div class="muted">Watch your RSVP for the <b>Join Steak Bingo</b> button. It shows up when the host starts the game.</div>`}
+    <div class="card closed"><div class="big">Steak Bingo isn't running right now.</div><div class="muted">Watch your RSVP for the <b>Join Steak Bingo</b> button. It shows up when a host starts a game.</div>
       <div style="height:14px"></div><a class="btn sec" style="display:block;text-decoration:none;text-align:center" href="../">Back to the RSVP page</a></div>`;
 }
 function playerScreen(){
   if(game.status!=="open") return closedScreen();
-  if(!me || me.round!==game.round) return joinScreen();
+  dropStaleMe();
+  if(!me) return joinScreen();
   const called=calledSet();
   const wins=winningLines(me.board, me.marks);
   app.innerHTML=`<h1>🥩 STEAKSGIVING IV BINGO</h1>
@@ -271,7 +271,7 @@ function syncSoundButton(){
 }
 function tvScreen(){
   // Moo once per new winner (per round). Don't moo for a winner already showing when the TV loads.
-  const winKey=game.winner?game.round+"|"+game.winner:null;
+  const winKey=game.winner?game.started_at+"|"+game.round+"|"+game.winner:null;
   if(lastWinKey!==undefined && winKey && winKey!==lastWinKey) moo();
   lastWinKey=winKey;
   const calls=game.calls||[], cur=calls[calls.length-1];
@@ -282,7 +282,7 @@ function tvScreen(){
   app.classList.toggle("hasqr", !!qr);
   if(st!=="open"){
     app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span></span></div>
-      <div class="tvmain"><div class="tvpanel">${st==="ended"
+      <div class="tvmain"><div class="tvpanel">${st!=="open"
         ?`<div class="tvwelcome">🥩 STEAKSGIVING IV</div><div class="tvwsub">Steak your claim.</div>`
         :`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Starts soon…</div>`}</div></div>
 `;
@@ -318,9 +318,9 @@ function hostScreen(){
   const pending=claims.filter(c=>c.status==="pending");
   const st=game.status;
   app.innerHTML=`<h1>🥩 HOST · ROUND ${game.round}</h1>
-    <div class="card"><b>Steak Bingo is ${st==="open"?"OPEN":st==="ended"?"closed for the night":"not started yet"}</b>
-      <div class="muted" style="margin:4px 0 10px">${st==="open"?"Guests see a Join button on their RSVP, and the TV shows a QR code.":"Starting shows a Join button on every RSVP and opens boards."}</div>
-      <button class="btn ${st==="open"?"sec":""}" id="bstat">${st==="open"?"Close Bingo":"▶ Start Bingo"}</button>
+    <div class="card"><b>Steak Bingo is ${st==="open"?"OPEN":"not running"}</b>
+      <div class="muted" style="margin:4px 0 10px">${st==="open"?"Guests see a Join button on their RSVP, and the TV shows a QR code. Stopping ends the game and resets everything for a new one.":"Starting shows a Join button on every RSVP and opens boards."}</div>
+      <button class="btn ${st==="open"?"sec":""}" id="bstat">${st==="open"?"■ Stop Bingo":"▶ Start Bingo"}</button>
       <div class="row" style="margin-top:8px"><a class="btn sec" style="text-align:center;text-decoration:none;font-size:15px" href="../">RSVP page</a><a class="btn sec" style="text-align:center;text-decoration:none;font-size:15px" href="./?tv" target="_blank" rel="noopener">TV screen</a></div></div>
     ${game.winner?`<div class="winner">🏆 ${esc(game.winner)} wins round ${game.round}</div>`:""}
     <div class="callbar"><div class="lbl">CALL ${calls.length} OF 75 · ${playerCount} PLAYER${playerCount===1?"":"S"}</div>
@@ -337,10 +337,11 @@ function hostScreen(){
     <div class="card"><b>Players (${playerCount})</b>
       ${players.length?players.map(p=>`<div class="roster"><span class="${p.removed?"rm":""}">${esc(p.name)}<span class="muted"> · ${new Date(p.created_at).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</span></span>${p.removed?`<span class="muted">removed</span>`:`<button data-k="${p.id}" data-n="${esc(p.name)}">Remove</button>`}</div>`).join(""):`<div class="muted">Nobody has joined yet</div>`}</div>
     <div class="card"><b>Called so far</b><div class="muted">${calls.slice().reverse().map(c=>`${c.n}. ${esc(c.steak)}: ${esc(c.topping)}`).join("<br>")||"Nothing yet"}</div></div>`;
+  const reloadHost=async()=>{ await loadGame(); await refreshHost(); hostScreen(); };
   const act=async(fn,args,msg)=>{ const { error } = await sb.rpc(fn,{p_token:hostTok,...args}); if(error) toast(error.message); else if(msg) toast(msg); };
   document.getElementById("bstat").onclick=()=>{
-    if(st==="open"){ if(confirm("Close Steak Bingo for the night? Join buttons disappear and boards close.")) act("host_bingo_status",{p_status:"ended"},"Bingo closed"); }
-    else act("host_bingo_status",{p_status:"open"},"Steak Bingo is open!");
+    if(st==="open"){ if(confirm("Stop Steak Bingo? This ends the game and resets everything (boards, calls, winners) for a new game.")) act("host_bingo_status",{p_status:"ended"},"Bingo stopped and reset").then(reloadHost); }
+    else act("host_bingo_status",{p_status:"open"},"Steak Bingo is open!").then(reloadHost);
   };
   document.getElementById("next").onclick=()=>act("host_next_call",{});
   document.getElementById("undo").onclick=()=>act("host_undo_call",{},"Undid last call");
@@ -351,19 +352,19 @@ function hostScreen(){
 /* ---------------- BOOT ---------------- */
 (async()=>{
   await Promise.all([loadGame(), loadDeck()]);
-  loadMe();
+  loadMe(); dropStaleMe();
   const render=()=> isTV ? tvScreen() : isHost ? (hostOK?hostScreen():hostLogin()) : playerScreen();
   sb.channel("live")
     .on("postgres_changes",{event:"UPDATE",schema:"public",table:"game"},async p=>{
-      const prevRound=game.round; game=p.new;
-      if(isHost && hostOK && (game.round!==prevRound)) await refreshHost();
-      if(!isHost && !isTV && me && game.round!==prevRound){ me=null; localStorage.removeItem("sg_player"); }
+      const prev=game; game=p.new;
+      if(isHost && hostOK && (game.round!==prev.round || game.status!==prev.status || game.started_at!==prev.started_at)) await refreshHost();
+      if(!isHost && !isTV) dropStaleMe();
       render();
     })
     .on("postgres_changes",{event:"*",schema:"public",table:"claims"},async()=>{ if(isHost&&hostOK){ await refreshHost(); render(); } })
     .on("postgres_changes",{event:"*",schema:"public",table:"players"},async p=>{
       if(isHost&&hostOK){ await refreshHost(); render(); }
-      else if(me && p.new && p.new.id===me.id && p.new.removed){ kicked(); }
+      else if(me && p.new && p.new.id===me.id && p.new.removed){ if(p.new.round<0){ me=null; localStorage.removeItem("sg_player"); render(); } else kicked(); }
     })
     .subscribe();
   function kicked(){ me=null; localStorage.removeItem("sg_player"); render(); toast("The host removed you. Join again to get a new board."); }
@@ -371,6 +372,7 @@ function hostScreen(){
   setInterval(async()=>{
     const prev=JSON.stringify(game); await loadGame();
     if(JSON.stringify(game)!==prev){ if(isHost&&hostOK) await refreshHost(); render(); }
+    if(!isHost && !isTV) dropStaleMe();
     if(!isHost && !isTV && me && game.status==="open"){ const { data } = await sb.from("players").select("removed").eq("id",me.id).maybeSingle(); if(!data || data.removed) kicked(); }
   },15000);
   if(isHost && hostTok){ const { data } = await sb.rpc("host_check",{p_token:hostTok}); hostOK=!!data; if(hostOK) await refreshHost(); }

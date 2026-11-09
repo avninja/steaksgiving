@@ -236,8 +236,8 @@ function hostBar(){
   return `<div class="hostbar"><b>Host panel</b> · <b>${people}</b> coming · ${declined.length} can't · ${noAns} haven't answered (of ${TARGET})${here?` · ${here} here`:""}
     <div class="target"><i style="width:${pct}%"></i></div>
     <div class="row2"><button id="hadd">+ Add RSVP for someone</button><button id="hroster">${showRoster?"Hide":"Show"} roster</button><button id="hcopy">Copy roster</button></div>
-    <div style="margin-top:12px"><b>Steak Bingo</b> · ${bingo?.status==="open"?"OPEN (Join buttons are showing)":bingo?.status==="ended"?"closed for the night":"not started"}</div>
-    <div class="row3"><button id="hbingo" class="${bingo?.status==="open"?"":"go"}">${bingo?.status==="open"?"Close Bingo":"▶ Start Bingo"}</button><a href="bingo/?host">Bingo host screen</a><a href="bingo/?tv" target="_blank" rel="noopener">TV screen</a></div>
+    <div style="margin-top:12px"><b>Steak Bingo</b> · ${bingo?.status==="open"?"OPEN (Join buttons are showing)":"not running"}</div>
+    <div class="row3"><button id="hbingo" class="${bingo?.status==="open"?"":"go"}">${bingo?.status==="open"?"■ Stop Bingo":"▶ Start Bingo"}</button><a href="bingo/?host">Bingo host screen</a><a href="bingo/?tv" target="_blank" rel="noopener">TV screen</a></div>
     ${showRoster?`<pre class="roster" style="margin:10px 0 0">${esc(rosterText())}</pre>`:""}</div>`;
 }
 function hostForm(){
@@ -364,10 +364,10 @@ function wire(){
   });
   if($("hbingo")) $("hbingo").onclick=async()=>{
     const open=bingo?.status==="open";
-    if(open && !confirm("Close Steak Bingo for the night? Join buttons disappear and boards close.")) return;
+    if(open && !confirm("Stop Steak Bingo? This ends the game and resets everything (boards, calls, winners) for a new game.")) return;
     const { error }=await sb.rpc("host_bingo_status",{p_token:mine.token,p_status:open?"ended":"open"});
     if(error) return toast(error.message);
-    await loadBingo(); render(); toast(open?"Bingo closed":"Steak Bingo is open!");
+    await loadBingo(); render(); toast(open?"Bingo stopped and reset":"Steak Bingo is open!");
   };
   if($("hadd")) $("hadd").onclick=()=>{ hostEdit={id:null,name:"",guests:[],dishes:[],host_note:""}; render(); };
   if($("hroster")) $("hroster").onclick=()=>{ showRoster=!showRoster; render(); };
