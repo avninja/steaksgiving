@@ -78,6 +78,12 @@
   .tvwin{background:var(--ok);font-size:7vh;font-weight:900;padding:2vh 4vw;border-radius:2vh;margin-top:4vh}
   .tvhist{display:flex;flex-wrap:wrap;justify-content:center;gap:1.5vh 1.5vw;padding:2vh 3vw 3vh;white-space:nowrap}
   .hasqr .tvhist{padding-left:calc(2.5vw + 27vh)}
+  .tvwinners{display:flex;flex-wrap:wrap;justify-content:center;gap:1vh 1.2vw;padding:0 3vw;font-size:2.6vh;font-weight:700;white-space:nowrap}
+  .hasqr .tvwinners{padding-left:calc(2.5vw + 27vh)}
+  .tvwinners span{background:rgba(46,125,50,.92);border-radius:999px;padding:.7vh 1.6vw;box-shadow:0 .4vh 1.2vh rgba(0,0,0,.35)}
+  .tvwinners span b{opacity:.8;margin-right:.4vw}
+  .tvwinners.big{font-size:3.4vh;margin-top:4vh;padding:0}
+  .tvwinners .lbl{flex-basis:100%;font-size:2.2vh;letter-spacing:.2em;opacity:.7;font-weight:800}
   .tvhist span{background:rgba(30,5,7,.85);box-shadow:0 .4vh 1.2vh rgba(0,0,0,.35);border-radius:999px;padding:1vh 2vw;font-size:3vh;font-weight:700;flex:0 0 auto}
   .tvhist span b{opacity:.75;font-weight:800;margin-right:.6vw}
   .tvqr{position:fixed;left:2.5vw;bottom:3vh;background:#fff;color:var(--dark);border-radius:2vh;padding:1.6vh;text-align:center;font-weight:800;font-size:2.4vh;line-height:1.25;box-shadow:0 1vh 3vh rgba(0,0,0,.35)}
@@ -134,16 +140,6 @@ async function loadDeck(){
   data.forEach(d=>deck[d.steak].push(d.topping));
 }
 function calledSet(){ return new Set((game?.calls||[]).map(c=>c.steak+"|"+c.topping)); }
-function makeBoard(){
-  const b=[];
-  for(let r=0;r<5;r++) b.push([]);
-  STEAKS.forEach((s,c)=>{
-    const pool=[...deck[s]];
-    for(let r=0;r<5;r++){ const i=Math.floor(Math.random()*pool.length); b[r][c]=pool.splice(i,1)[0]; }
-  });
-  b[2][2]="FREE";
-  return b;
-}
 function boardHTML(board, marks, called, badSet){
   let h='<div class="board"><div></div>'+STEAKS.map(s=>`<div class="hd">${s}</div>`).join("");
   for(let r=0;r<5;r++){
@@ -190,10 +186,10 @@ async function joinScreen(){
     const name=document.getElementById("nm").value.trim();
     if(!name) return toast("Need a name");
     localStorage.setItem("sg_name", name);
-    const board=makeBoard();
-    const { data, error } = await sb.from("players").insert({name, round:game.round, board}).select().single();
-    if(error) return toast(game.status==="open"?"Couldn't join, try again":"Steak Bingo isn't open right now");
-    me={id:data.id,name,round:game.round,game:game.started_at,board,marks:Array(25).fill(false),claimed:false};
+    // The server deals the board, so nobody can make their own.
+    const { data, error } = await sb.rpc("bingo_join",{p_name:name});
+    if(error||!data) return toast(game.status==="open"?"Couldn't join, try again":"Steak Bingo isn't open right now");
+    me={id:data.id,name:data.name,round:data.round,game:game.started_at,board:data.board,marks:Array(25).fill(false),claimed:false};
     saveMe(); playerScreen();
   };
   if(joinName && !autoJoinTried){
@@ -205,6 +201,13 @@ async function joinScreen(){
 }
 // A saved board belongs to one game (started_at) and round; drop it quietly once that game is over.
 function dropStaleMe(){ if(me && (me.round!==game.round || me.game!==game.started_at)){ me=null; localStorage.removeItem("sg_player"); } }
+// Round winners: finished rounds, plus the current round's winner if there is one.
+function winnersNow(){ return [...(game.winners||[]), ...(game.winner?[{round:game.round,name:game.winner}]:[])]; }
+const winnerChips=list=>list.map(w=>`<span>🏆 <b>R${w.round}</b> ${esc(w.name)}</span>`).join("");
+// Keep the screen on during the game (TV, host and player screens).
+let wakeLock=null;
+async function keepAwake(){ try{ if("wakeLock" in navigator && document.visibilityState==="visible" && !wakeLock){ wakeLock=await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release",()=>{ wakeLock=null; }); } }catch{} }
+document.addEventListener("visibilitychange",keepAwake);
 function closedScreen(){
   app.innerHTML=`<h1>🥩 STEAKSGIVING IV BINGO</h1>
     <div class="card closed"><div class="big">Steak Bingo isn't running right now.</div><div class="muted">Watch your RSVP for the <b>Join Steak Bingo</b> button. It shows up when a host starts a game.</div>
@@ -283,7 +286,7 @@ function tvScreen(){
   if(st!=="open"){
     app.innerHTML=`<div class="tvtop"><span>🥩 STEAKSGIVING IV BINGO</span><span></span></div>
       <div class="tvmain"><div class="tvpanel">${st!=="open"
-        ?`<div class="tvwelcome">🥩 STEAKSGIVING IV</div><div class="tvwsub">Steak your claim.</div>`
+        ?`<div class="tvwelcome">🥩 STEAKSGIVING IV</div><div class="tvwsub">Steak your claim.</div>${(game.last_winners||[]).length?`<div class="tvwinners big"><div class="lbl">STEAK BINGO WINNERS</div>${winnerChips(game.last_winners)}</div>`:""}`
         :`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Starts soon…</div>`}</div></div>
 `;
     syncSoundButton();
@@ -293,6 +296,7 @@ function tvScreen(){
     ${qr?`<div class="tvqr">${qr}Scan to play<small>${esc(PLAY_URL.replace(/^https?:\/\//,""))}</small></div>`:""}
     <div class="tvmain"><div class="tvpanel">${cur?`<div class="tvsteak">${esc(cur.steak)}</div><div class="tvtop2">${esc(cur.topping)}</div>`:`<div class="tvbingo">STEAK BINGO</div><div class="tvwait">Waiting for the first call…</div>`}</div>
     ${game.winner?`<div class="tvwin">🏆 ${esc(game.winner)} has BINGO!</div>`:""}</div>
+    ${(game.winners||[]).length?`<div class="tvwinners">${winnerChips(game.winners)}</div>`:""}
     <div class="tvhist">${hist}</div>`;
   syncSoundButton();
 }
@@ -334,6 +338,7 @@ function hostScreen(){
       return `<div class="card claim ${c.status}"><b>${esc(c.name)}</b> · ${esc(c.line)}<div class="muted">${label}</div>
         ${boardHTML(c.board,c.marks,called,bad)}</div>`;
     }).join("")}
+    ${winnersNow().length?`<div class="card"><b>Winners so far</b><div style="margin-top:6px">${winnersNow().map(w=>`<div>🏆 Round ${w.round}: <b>${esc(w.name)}</b></div>`).join("")}</div></div>`:""}
     <div class="card"><b>Players (${playerCount})</b>
       ${players.length?players.map(p=>`<div class="roster"><span class="${p.removed?"rm":""}">${esc(p.name)}<span class="muted"> · ${new Date(p.created_at).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</span></span>${p.removed?`<span class="muted">removed</span>`:`<button data-k="${p.id}" data-n="${esc(p.name)}">Remove</button>`}</div>`).join(""):`<div class="muted">Nobody has joined yet</div>`}</div>
     <div class="card"><b>Called so far</b><div class="muted">${calls.slice().reverse().map(c=>`${c.n}. ${esc(c.steak)}: ${esc(c.topping)}`).join("<br>")||"Nothing yet"}</div></div>`;
@@ -353,6 +358,7 @@ function hostScreen(){
 (async()=>{
   await Promise.all([loadGame(), loadDeck()]);
   loadMe(); dropStaleMe();
+  keepAwake();
   const render=()=> isTV ? tvScreen() : isHost ? (hostOK?hostScreen():hostLogin()) : playerScreen();
   sb.channel("live")
     .on("postgres_changes",{event:"UPDATE",schema:"public",table:"game"},async p=>{

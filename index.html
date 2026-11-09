@@ -6,6 +6,11 @@
 <title>Steaksgiving IV · RSVP</title>
 <meta property="og:title" content="Steaksgiving IV">
 <meta property="og:description" content="Friday, Nov 27 at Gladiola Studio. RSVP and tell us what you're bringing.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://avninja.github.io/steaksgiving/img/invite.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥩</text></svg>">
 <style>
   :root{--red:#8b1e1e;--cream:#fbf5ec;--tan:#e8d9c4;--dark:#2b1a14;--ok:#2e7d32;--muted:#8a7a6c}
@@ -73,6 +78,7 @@
   .hostbar .row3{display:flex;gap:8px;margin-top:8px}
   .hostbar .row3 a,.hostbar .row3 button{flex:1;background:rgba(255,255,255,.14);color:#fff;font-size:14px;padding:10px;border-radius:10px;text-align:center;text-decoration:none;font-weight:700}
   .hostbar .row3 .go{background:var(--ok)}
+  .ann{background:#fff3cd;border:2px solid #e0b84a;color:#5c4400;border-radius:12px;padding:12px 14px;margin:10px 0;font-weight:700;font-size:16px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
   .warn{font-size:13px;color:#a35f00;font-weight:600;margin:4px 0 0}
   .warn:empty{display:none}
   .need{background:#fff7e8;border:1px solid #f0d9ae;border-radius:10px;padding:10px 12px;font-size:14px;margin:8px 0 2px}
@@ -99,7 +105,7 @@ let list=[], mine=null, editing=false;
 // draft kept in memory while the form is open
 let draft={name:"",guests:[],dishes:[]};
 // host editing state
-const TARGET=20; // invites
+const invited=()=>bingo?.invited||20; // how many people were invited (hosts can change it)
 let hostEdit=null;   // {id|null, name, guests, dishes, host_note}
 let showRoster=false;
 // Hosts are RSVPs flagged is_host; their own RSVP link unlocks host tools.
@@ -177,7 +183,10 @@ async function loadList(){
     declined=(hx||[]).filter(x=>x.attending===false);
   } else declined=[];
 }
-async function loadBingo(){ const { data } = await sb.from("game").select("status,round").eq("id",1).maybeSingle(); bingo=data||null; }
+async function loadBingo(){ const { data } = await sb.from("game").select("status,round,announcement,invited").eq("id",1).maybeSingle(); bingo=data||null; }
+// Host announcement banner (shown to everyone, updates live)
+function annHTML(){ const a=bingo?.announcement; return `<div id="ann" class="ann"${a?"":" hidden"}>📣 ${esc(a||"")}</div>`; }
+function paintAnn(){ const el=document.getElementById("ann"); if(!el) return; const a=bingo?.announcement; el.hidden=!a; el.textContent="📣 "+(a||""); }
 async function refreshMine(){
   if(!mine?.token) return;
   const { data } = await sb.rpc("rsvp_get",{p_token:mine.token});
@@ -187,7 +196,7 @@ const headcount=r=>1+(r.guests||[]).length;
 
 function hero(){
   return `<div class="hero"><h1>🥩 STEAKSGIVING IV</h1><div class="sub">The fourth annual steak potluck, celebrating friendship and togetherness</div>
-    <div class="when">Friday, November 27 · 6–10 PM<br>Gladiola Studio</div></div>`;
+    <div class="when">Friday, November 27 · 6–10 PM<br>Gladiola Studio</div></div>${annHTML()}`;
 }
 function stats(){
   const people=list.reduce((n,r)=>n+headcount(r),0);
@@ -205,7 +214,7 @@ function guestList(){
     const extras=(r.guests||[]).filter(g=>g&&g.trim());
     const plus=(r.guests||[]).length? ` <span class="plus">+${(r.guests||[]).length}${extras.length?` (${esc(extras.join(", "))})`:""}</span>`:"";
     const chips=(r.dishes||[]).length? `<div class="chips">${r.dishes.map(d=>`<span class="chip"><i>${esc((d.cat||"").toUpperCase())}</i>${esc(d.name)}</span>`).join("")}</div>`:`<div class="muted">Bringing: TBD</div>`;
-    const host=H()?`<div class="acts"><button class="sec ${r.arrived?"arr":""}" data-arr="${r.id}" data-v="${r.arrived?0:1}">${r.arrived?"Here":"Arrived?"}</button><button class="sec" data-edit="${r.id}">Edit</button><button class="sec" data-mh="${r.id}" data-v="${r.is_host?0:1}" data-n="${esc(r.name)}">${r.is_host?"Unhost":"Make host"}</button><button class="sec" data-del="${r.id}" data-n="${esc(r.name)}">✕</button></div>`:"";
+    const host=H()?`<div class="acts"><button class="sec ${r.arrived?"arr":""}" data-arr="${r.id}" data-v="${r.arrived?0:1}">${r.arrived?"Here":"Arrived?"}</button><button class="sec" data-edit="${r.id}">Edit</button><button class="sec" data-mh="${r.id}" data-v="${r.is_host?0:1}" data-n="${esc(r.name)}">${r.is_host?"Unhost":"Make host"}</button><button class="sec" data-link="${r.id}" data-n="${esc(r.name)}">Link</button><button class="sec" data-del="${r.id}" data-n="${esc(r.name)}">✕</button></div>`:"";
     const note=H()&&r.host_note?`<div class="hnote">Note: ${esc(r.host_note)}</div>`:"";
     return `<div class="guest ${r.arrived&&H()?"arrived":""}"><div class="hostrow"><span class="nm">${esc(r.name)}${r.is_host?'<span class="hbadge">HOST</span>':""}${plus}${mine&&mine.id===r.id?' <span class="plus">(you)</span>':""}</span>${host}</div>${chips}${note}</div>`;
   }).join("")}</div>`;
@@ -231,11 +240,13 @@ function rosterText(){
 function hostBar(){
   const people=list.reduce((n,r)=>n+headcount(r),0);
   const here=list.filter(r=>r.arrived).reduce((n,r)=>n+headcount(r),0);
+  const TARGET=invited();
   const pct=Math.min(100,Math.round(people/TARGET*100));
   const noAns=Math.max(0,TARGET-people-declined.length);
-  return `<div class="hostbar"><b>Host panel</b> · <b>${people}</b> coming · ${declined.length} can't · ${noAns} haven't answered (of ${TARGET})${here?` · ${here} here`:""}
+  return `<div class="hostbar"><b>Host panel</b> · <b>${people}</b> coming · ${declined.length} can't · ${noAns} haven't answered (of <button class="link" id="hinv" style="color:#fff;padding:0;font-size:inherit">${TARGET} invited</button>)${here?` · ${here} here`:""}
     <div class="target"><i style="width:${pct}%"></i></div>
     <div class="row2"><button id="hadd">+ Add RSVP for someone</button><button id="hroster">${showRoster?"Hide":"Show"} roster</button><button id="hcopy">Copy roster</button></div>
+    <div class="row3"><button id="hann">📣 ${bingo?.announcement?"Edit announcement":"Post an announcement"}</button></div>
     <div style="margin-top:12px"><b>Steak Bingo</b> · ${bingo?.status==="open"?"OPEN (Join buttons are showing)":"not running"}</div>
     <div class="row3"><button id="hbingo" class="${bingo?.status==="open"?"":"go"}">${bingo?.status==="open"?"■ Stop Bingo":"▶ Start Bingo"}</button><a href="bingo/?host">Bingo host screen</a><a href="bingo/?tv" target="_blank" rel="noopener">TV screen</a></div>
     ${showRoster?`<pre class="roster" style="margin:10px 0 0">${esc(rosterText())}</pre>`:""}</div>`;
@@ -351,7 +362,7 @@ function render(){
 }
 function wire(){
   const $=id=>document.getElementById(id);
-  app.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{ if(!confirm(`Remove ${b.dataset.n}'s RSVP?`)) return; const { error }=await sb.rpc("host_rsvp_delete",{p_token:mine.token,p_id:b.dataset.del}); if(error) toast(/function|schema cache/i.test(error.message)?"Removing RSVPs needs one more database step. Ask Claude.":error.message); else { await loadList(); render(); } });
+  app.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{ if(!confirm(`Remove ${b.dataset.n}'s RSVP?`)) return; const { error }=await sb.rpc("host_rsvp_remove",{p_token:mine.token,p_id:b.dataset.del}); if(error) toast(error.message); else { await loadList(); render(); toast(`Removed ${b.dataset.n}`); } });
   app.querySelectorAll("[data-arr]").forEach(b=>b.onclick=async()=>{ const { error }=await sb.rpc("host_rsvp_arrived",{p_token:mine.token,p_id:b.dataset.arr,p_arrived:b.dataset.v==="1"}); if(error) toast(error.message); else { await loadList(); render(); } });
   app.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{ const r=list.find(x=>x.id===b.dataset.edit); if(!r) return; hostEdit={id:r.id,name:r.name,guests:[...(r.guests||[])],dishes:(r.dishes||[]).map(d=>({...d})),host_note:r.host_note||""}; render(); window.scrollTo({top:0,behavior:"smooth"}); });
   app.querySelectorAll("[data-mh]").forEach(b=>b.onclick=async()=>{
@@ -368,6 +379,23 @@ function wire(){
     const { error }=await sb.rpc("host_bingo_status",{p_token:mine.token,p_status:open?"ended":"open"});
     if(error) return toast(error.message);
     await loadBingo(); render(); toast(open?"Bingo stopped and reset":"Steak Bingo is open!");
+  };
+  app.querySelectorAll("[data-link]").forEach(b=>b.onclick=async()=>{
+    const { data, error }=await sb.rpc("host_get_link",{p_token:mine.token,p_id:b.dataset.link});
+    if(error||!data) return toast(error?.message||"Couldn't get the link");
+    const url=`${location.origin}${location.pathname}?edit=${data}`;
+    try{ await navigator.clipboard.writeText(url); toast(`${b.dataset.n}'s edit link copied. Send it only to them.`); }catch{ prompt(`${b.dataset.n}'s edit link (send it only to them):`,url); }
+  });
+  if($("hinv")) $("hinv").onclick=async()=>{
+    const v=prompt("How many people did you invite in total?",String(invited())); if(v===null) return;
+    const n=parseInt(v,10); if(!(n>=1&&n<=500)) return toast("Enter a number from 1 to 500");
+    const { error }=await sb.rpc("host_set_invited",{p_token:mine.token,p_n:n}); if(error) return toast(error.message);
+    await loadBingo(); render(); toast("Updated");
+  };
+  if($("hann")) $("hann").onclick=async()=>{
+    const v=prompt("Announcement shown at the top of everyone's RSVP page (leave empty to remove it):",bingo?.announcement||""); if(v===null) return;
+    const { error }=await sb.rpc("host_set_announcement",{p_token:mine.token,p_text:v}); if(error) return toast(error.message);
+    await loadBingo(); render(); toast(v.trim()?"Announcement posted":"Announcement removed");
   };
   if($("hadd")) $("hadd").onclick=()=>{ hostEdit={id:null,name:"",guests:[],dishes:[],host_note:""}; render(); };
   if($("hroster")) $("hroster").onclick=()=>{ showRoster=!showRoster; render(); };
@@ -434,11 +462,12 @@ function wire(){
   render();
   if(editTok && mine?.token!==editTok) toast("That edit link didn't work. Ask a host for help.");
   // Fallback if the live connection drops: re-check Bingo status every 20s.
-  setInterval(async()=>{ const before=bingo?.status; await loadBingo(); if(bingo?.status!==before && !editing && !hostEdit && mine) render(); },20000);
+  setInterval(async()=>{ const before=bingo; await loadBingo(); paintAnn(); if((bingo?.status!==before?.status || (H() && bingo?.invited!==before?.invited)) && !editing && !hostEdit && mine) render(); },20000);
   sb.channel("rsvp-live")
   .on("postgres_changes",{event:"UPDATE",schema:"public",table:"game"},p=>{
-    const before=bingo?.status; bingo={status:p.new.status,round:p.new.round};
-    if(before!==bingo.status && !editing && !hostEdit && mine) render();
+    const before=bingo; bingo={status:p.new.status,round:p.new.round,announcement:p.new.announcement,invited:p.new.invited};
+    paintAnn();
+    if((before?.status!==bingo.status || (H() && before?.invited!==bingo.invited)) && !editing && !hostEdit && mine) render();
   })
   .on("postgres_changes",{event:"*",schema:"public",table:"rsvp_ping"},async()=>{
     if(mine?.token) await refreshMine();
