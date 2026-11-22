@@ -109,6 +109,7 @@ const invited=()=>bingo?.invited||20; // how many people were invited (hosts can
 let hostEdit=null;   // {id|null, name, guests, dishes, host_note}
 let showRoster=false;
 // Hosts are RSVPs flagged is_host; their own RSVP link unlocks host tools.
+let offline=false;
 const H=()=>!!mine?.is_host;
 let bingo=null; // {status, round}
 let declined=[]; // hosts only: RSVPs marked "can't make it"
@@ -189,8 +190,18 @@ function annHTML(){ const a=bingo?.announcement; return `<div id="ann" class="an
 function paintAnn(){ const el=document.getElementById("ann"); if(!el) return; const a=bingo?.announcement; el.hidden=!a; el.textContent="📣 "+(a||""); }
 async function refreshMine(){
   if(!mine?.token) return;
-  const { data } = await sb.rpc("rsvp_get",{p_token:mine.token});
-  if(!data){ mine=null; localStorage.removeItem("sg_rsvp"); } else { mine={...mine, ...data}; }
+  // Only forget this device's RSVP when the server answered and says it is gone.
+  // A failed request (weak Wi-Fi, sign-in page on a guest network, switching to cellular) keeps it and retries.
+  for(let i=0;i<3;i++){
+    let res; try{ res=await sb.rpc("rsvp_get",{p_token:mine.token}); }catch(e){ res={error:e}; }
+    if(!res.error){
+      offline=false;
+      if(!res.data){ mine=null; localStorage.removeItem("sg_rsvp"); } else { mine={...mine, ...res.data}; }
+      return;
+    }
+    await new Promise(r=>setTimeout(r,800*(i+1)));
+  }
+  offline=true;
 }
 const headcount=r=>1+(r.guests||[]).length;
 
@@ -457,7 +468,21 @@ function wire(){
   loadMine();
   await Promise.all([refreshMine(), loadBingo()]);
   await loadList();
-  if(mine && !mine.name){ mine=null; localStorage.removeItem("sg_rsvp"); }
+  if(mine && !mine.name){
+    if(offline){
+      // Could not reach the server: keep the saved RSVP, show the page signed out for now, and keep trying.
+      const saved=mine; mine=null;
+      toast("Can't reach the server. Still trying to sign you in…");
+      const again=setInterval(async()=>{
+        if(editing||hostEdit) return;
+        if(mine){ clearInterval(again); return; }   // they signed in another way meanwhile
+        mine=saved; await refreshMine();
+        if(offline){ mine=null; return; }
+        clearInterval(again);
+        if(mine){ await loadList(); await loadEvent(); render(); toast("You're signed in."); }
+      },5000);
+    } else { mine=null; localStorage.removeItem("sg_rsvp"); }
+  }
   await loadEvent();
   render();
   if(editTok && mine?.token!==editTok) toast("That edit link didn't work. Ask a host for help.");
