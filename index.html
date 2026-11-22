@@ -260,6 +260,8 @@ function hostBar(){
     <div class="row3"><button id="hann">📣 ${bingo?.announcement?"Edit announcement":"Post an announcement"}</button></div>
     <div style="margin-top:12px"><b>Steak Bingo</b> · ${bingo?.status==="open"?"OPEN (Join buttons are showing)":"not running"}</div>
     <div class="row3"><button id="hbingo" class="${bingo?.status==="open"?"":"go"}">${bingo?.status==="open"?"■ Stop Bingo":"▶ Start Bingo"}</button><a href="bingo/?host">Bingo host screen</a><a href="bingo/?tv" target="_blank" rel="noopener">TV screen</a></div>
+    <div style="margin-top:12px"><b>Moo Cowpetition</b> · guests rate at the Rate the Moos button</div>
+    <div class="row3"><a href="moo/?host" class="go">Moo host screen</a><a href="moo/?tv" target="_blank" rel="noopener">Moo TV screen</a></div>
     ${showRoster?`<pre class="roster" style="margin:10px 0 0">${esc(rosterText())}</pre>`:""}</div>`;
 }
 function hostForm(){
@@ -339,6 +341,7 @@ function mineCard(){
       <a class="btn sec" style="display:block;text-align:center;text-decoration:none;margin-top:10px;box-sizing:border-box;border-radius:10px;padding:13px 16px;font-weight:700;color:var(--dark)" href="${icsHref()}" download="steaksgiving-iv.ics">📆 Add to calendar</a>
     </div>
     ${bingoCard()}
+    ${mooCard()}
     ${editLinkCard()}`;
 }
 function declinedList(){
@@ -347,6 +350,11 @@ function declinedList(){
     <div class="muted">Said no ${new Date(d.updated_at).toLocaleDateString([], {month:"short",day:"numeric"})}${d.host_note?` · Note: ${esc(d.host_note)}`:""}</div></div>`).join("")}</div>`;
 }
 
+function mooCard(){
+  return `<div class="card bingo"><div class="big">🐄 The Moo Cowpetition</div>
+    <div style="margin-bottom:10px">Give us your best moo at the party. Everyone rates each moo for Realism, Passion, and Herd Appeal, and the winner takes home The Mooey.</div>
+    <a class="btn sec" style="color:var(--dark)" href="moo/?name=${encodeURIComponent(mine.name)}">Rate the Moos</a></div>`;
+}
 function bingoCard(){
   const st=bingo?.status;
   if(st==="open") return `<div class="card bingo"><div class="big">🥩 Steak Bingo is on!</div>
