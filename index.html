@@ -57,8 +57,9 @@
   .catsum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .catsum div{background:#fff;border:1px solid var(--tan);border-radius:10px;padding:8px;text-align:center;font-size:12px;color:var(--muted);font-weight:700}
   .catsum div b{display:block;font-size:20px;color:var(--dark)}
-  .hostrow{display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .hostrow .acts{display:flex;gap:6px;flex:0 0 auto;flex-wrap:wrap;justify-content:flex-end}
+  .hostrow{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .hostrow .nm{min-width:0}
+  .hostrow .acts{display:flex;gap:6px;flex:1 1 100%;flex-wrap:wrap;justify-content:flex-start}
   .hostrow .acts button{padding:7px 10px;font-size:12px}
   .arr{background:var(--ok)!important;color:#fff!important}
   .guest.arrived .nm::before{content:"✓ ";color:var(--ok)}
@@ -71,6 +72,9 @@
   textarea{font:inherit;width:100%;padding:12px;border:2px solid var(--tan);border-radius:10px;font-size:15px;min-height:70px}
   pre.roster{background:#fff;color:var(--dark);border:1px solid var(--tan);border-radius:10px;padding:12px;font-size:13px;white-space:pre-wrap;line-height:1.5;font-family:ui-monospace,Menlo,Consolas,monospace}
   .hnote{font-size:12px;color:#b36b00;font-weight:700;margin-top:4px}
+  .mbadge{display:inline-block;background:var(--tan);color:var(--dark);font-size:10px;font-weight:800;letter-spacing:.6px;border-radius:999px;padding:2px 7px;margin-left:6px;vertical-align:2px}
+  .chk{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;color:var(--dark);margin:14px 0 0}
+  .chk input{width:22px;height:22px;flex:0 0 auto;padding:0}
   .hbadge{display:inline-block;background:var(--red);color:#fff;font-size:10px;font-weight:800;letter-spacing:.6px;border-radius:999px;padding:2px 7px;margin-left:6px;vertical-align:2px}
   .bingo{border:2px solid var(--red)}
   .bingo .big{font-size:18px;font-weight:800;margin-bottom:4px}
@@ -210,9 +214,11 @@ function hero(){
     <div class="when">Friday, November 27 · 6–10 PM<br>Gladiola Studio</div></div>${annHTML()}`;
 }
 function stats(){
-  const people=list.reduce((n,r)=>n+headcount(r),0);
+  const yes=list.filter(r=>!r.maybe);
+  const people=yes.reduce((n,r)=>n+headcount(r),0);
+  const maybes=list.filter(r=>r.maybe).reduce((n,r)=>n+headcount(r),0);
   const dishes=list.reduce((n,r)=>n+(r.dishes||[]).length,0);
-  return `<div class="stats"><div class="stat"><b>${list.length}</b><span>RSVPs</span></div><div class="stat"><b>${people}</b><span>PEOPLE</span></div><div class="stat"><b>${dishes}</b><span>DISHES</span></div></div>`;
+  return `<div class="stats"><div class="stat"><b>${yes.length}</b><span>RSVPs</span></div><div class="stat"><b>${people}</b><span>PEOPLE${maybes?` · ${maybes} MAYBE`:""}</span></div><div class="stat"><b>${dishes}</b><span>DISHES</span></div></div>`;
 }
 function catSummary(){
   const c={}; CATS.forEach(k=>c[k]=0);
@@ -225,19 +231,20 @@ function guestList(){
     const extras=(r.guests||[]).filter(g=>g&&g.trim());
     const plus=(r.guests||[]).length? ` <span class="plus">+${(r.guests||[]).length}${extras.length?` (${esc(extras.join(", "))})`:""}</span>`:"";
     const chips=(r.dishes||[]).length? `<div class="chips">${r.dishes.map(d=>`<span class="chip"><i>${esc((d.cat||"").toUpperCase())}</i>${esc(d.name)}</span>`).join("")}</div>`:`<div class="muted">Bringing: TBD</div>`;
-    const host=H()?`<div class="acts"><button class="sec ${r.arrived?"arr":""}" data-arr="${r.id}" data-v="${r.arrived?0:1}">${r.arrived?"Here":"Arrived?"}</button><button class="sec" data-edit="${r.id}">Edit</button><button class="sec" data-mh="${r.id}" data-v="${r.is_host?0:1}" data-n="${esc(r.name)}">${r.is_host?"Unhost":"Make host"}</button><button class="sec" data-link="${r.id}" data-n="${esc(r.name)}">Link</button><button class="sec" data-del="${r.id}" data-n="${esc(r.name)}">✕</button></div>`:"";
+    const host=H()?`<div class="acts"><button class="sec ${r.arrived?"arr":""}" data-arr="${r.id}" data-v="${r.arrived?0:1}">${r.arrived?"Here":"Arrived?"}</button><button class="sec" data-mb="${r.id}" data-v="${r.maybe?0:1}">${r.maybe?"Confirm":"Maybe"}</button><button class="sec" data-edit="${r.id}">Edit</button><button class="sec" data-mh="${r.id}" data-v="${r.is_host?0:1}" data-n="${esc(r.name)}">${r.is_host?"Unhost":"Make host"}</button><button class="sec" data-link="${r.id}" data-n="${esc(r.name)}">Link</button><button class="sec" data-del="${r.id}" data-n="${esc(r.name)}">✕</button></div>`:"";
     const note=H()&&r.host_note?`<div class="hnote">Note: ${esc(r.host_note)}</div>`:"";
-    return `<div class="guest ${r.arrived&&H()?"arrived":""}"><div class="hostrow"><span class="nm">${esc(r.name)}${r.is_host?'<span class="hbadge">HOST</span>':""}${plus}${mine&&mine.id===r.id?' <span class="plus">(you)</span>':""}</span>${host}</div>${chips}${note}</div>`;
+    return `<div class="guest ${r.arrived&&H()?"arrived":""}"><div class="hostrow"><span class="nm">${esc(r.name)}${r.is_host?'<span class="hbadge">HOST</span>':""}${r.maybe?'<span class="mbadge">MAYBE</span>':""}${plus}${mine&&mine.id===r.id?' <span class="plus">(you)</span>':""}</span>${host}</div>${chips}${note}</div>`;
   }).join("")}</div>`;
 }
 
 /* ---- host tools ---- */
 function rosterText(){
-  const people=list.reduce((n,r)=>n+headcount(r),0);
-  const lines=[`STEAKSGIVING IV — ${list.length} RSVPs, ${people} people`,""];
+  const people=list.filter(r=>!r.maybe).reduce((n,r)=>n+headcount(r),0);
+  const maybeP=list.filter(r=>r.maybe).reduce((n,r)=>n+headcount(r),0);
+  const lines=[`STEAKSGIVING IV — ${list.filter(r=>!r.maybe).length} RSVPs, ${people} people${maybeP?`, ${maybeP} maybe`:""}`,""];
   list.forEach(r=>{
     const g=(r.guests||[]); const names=g.filter(x=>x&&x.trim());
-    lines.push(`${r.arrived?"[x] ":"[ ] "}${r.name}${g.length?` +${g.length}${names.length?` (${names.join(", ")})`:""}`:""}`);
+    lines.push(`${r.arrived?"[x] ":"[ ] "}${r.name}${r.maybe?" (maybe)":""}${g.length?` +${g.length}${names.length?` (${names.join(", ")})`:""}`:""}`);
     (r.dishes||[]).forEach(d=>lines.push(`      - ${d.name} (${d.cat})`));
     if(r.host_note) lines.push(`      note: ${r.host_note}`);
   });
@@ -249,12 +256,13 @@ function rosterText(){
   return lines.join("\n");
 }
 function hostBar(){
-  const people=list.reduce((n,r)=>n+headcount(r),0);
+  const people=list.filter(r=>!r.maybe).reduce((n,r)=>n+headcount(r),0);
+  const maybeP=list.filter(r=>r.maybe).reduce((n,r)=>n+headcount(r),0);
   const here=list.filter(r=>r.arrived).reduce((n,r)=>n+headcount(r),0);
   const TARGET=invited();
   const pct=Math.min(100,Math.round(people/TARGET*100));
-  const noAns=Math.max(0,TARGET-people-declined.length);
-  return `<div class="hostbar"><b>Host panel</b> · <b>${people}</b> coming · ${declined.length} can't · ${noAns} haven't answered (of <button class="link" id="hinv" style="color:#fff;padding:0;font-size:inherit">${TARGET} invited</button>)${here?` · ${here} here`:""}
+  const noAns=Math.max(0,TARGET-people-maybeP-declined.length);
+  return `<div class="hostbar"><b>Host panel</b> · <b>${people}</b> coming · ${maybeP} maybe · ${declined.length} can't · ${noAns} haven't answered (of <button class="link" id="hinv" style="color:#fff;padding:0;font-size:inherit">${TARGET} invited</button>)${here?` · ${here} here`:""}
     <div class="target"><i style="width:${pct}%"></i></div>
     <div class="row2"><button id="hadd">+ Add RSVP for someone</button><button id="hroster">${showRoster?"Hide":"Show"} roster</button><button id="hcopy">Copy roster</button></div>
     <div class="row3"><button id="hann">📣 ${bingo?.announcement?"Edit announcement":"Post an announcement"}</button></div>
@@ -298,6 +306,7 @@ function form(){
     ${neededHTML()}
     <div id="dishes">${d.dishes.map((x,i)=>`<div class="row"><input data-d="${i}" maxlength="60" placeholder="e.g., Green bean casserole" value="${esc(x.name)}"><select data-c="${i}">${CATS.map(c=>`<option ${x.cat===c?"selected":""}>${c}</option>`).join("")}</select><button class="x" data-rd="${i}" aria-label="Remove">×</button></div><div class="warn" data-dw="${i}">${dishWarn(x.name)}</div>`).join("")}</div>
     <button class="link" id="addd">+ Add a dish</button>
+    <label class="chk"><input type="checkbox" id="mb" ${d.maybe?"checked":""}> I'm a maybe (not sure I can make it yet)</label>
     <div style="height:12px"></div>
     <button class="btn" id="save">${mine&&mine.attending!==false?"Update my RSVP":"I'm in! Save RSVP"}</button>
     ${!mine?`<button class="btn sec" id="decline" style="margin-top:8px">Can't make it</button>`
@@ -307,6 +316,7 @@ function form(){
 }
 function syncDraft(){
   draft.name=document.getElementById("nm")?.value??draft.name;
+  draft.maybe=document.getElementById("mb")?.checked??draft.maybe;
   app.querySelectorAll("[data-g]").forEach(el=>draft.guests[+el.dataset.g]=el.value);
   app.querySelectorAll("[data-d]").forEach(el=>draft.dishes[+el.dataset.d].name=el.value);
   app.querySelectorAll("[data-c]").forEach(el=>draft.dishes[+el.dataset.c].cat=el.value);
@@ -328,7 +338,7 @@ function declinedCard(){
 function mineCard(){
   if(mine.attending===false) return declinedCard();
   const n=(mine.guests||[]).length;
-  return `<div class="ok">✅ You're in${n?` with ${n} guest${n>1?"s":""}`:""}, ${esc(mine.name)}!</div>
+  return `<div class="ok"${mine.maybe?' style="background:#a35f00"':""}>${mine.maybe?"🤔 You're a maybe":"✅ You're in"}${n?` with ${n} guest${n>1?"s":""}`:""}, ${esc(mine.name)}!</div>
     <div class="card mine"><b>Your RSVP</b>
       <div class="muted" style="margin-top:4px">${(mine.guests||[]).filter(g=>g&&g.trim()).length?`Guests: ${esc(mine.guests.filter(g=>g&&g.trim()).join(", "))}`:n?`+${n} guest${n>1?"s":""}`:"Just you"}</div>
       ${(mine.dishes||[]).length?`<div class="chips">${mine.dishes.map(d=>`<span class="chip"><i>${esc((d.cat||"").toUpperCase())}</i>${esc(d.name)}</span>`).join("")}</div>`:`<div class="muted">You haven't picked a dish yet.</div>`}
@@ -383,6 +393,7 @@ function wire(){
   const $=id=>document.getElementById(id);
   app.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{ if(!confirm(`Remove ${b.dataset.n}'s RSVP?`)) return; const { error }=await sb.rpc("host_rsvp_remove",{p_token:mine.token,p_id:b.dataset.del}); if(error) toast(error.message); else { await loadList(); render(); toast(`Removed ${b.dataset.n}`); } });
   app.querySelectorAll("[data-arr]").forEach(b=>b.onclick=async()=>{ const { error }=await sb.rpc("host_rsvp_arrived",{p_token:mine.token,p_id:b.dataset.arr,p_arrived:b.dataset.v==="1"}); if(error) toast(error.message); else { await loadList(); render(); } });
+  app.querySelectorAll("[data-mb]").forEach(b=>b.onclick=async()=>{ const { error }=await sb.rpc("host_set_maybe",{p_token:mine.token,p_id:b.dataset.mb,p_maybe:b.dataset.v==="1"}); if(error) toast(error.message); else { if(b.dataset.mb===mine.id) await refreshMine(); await loadList(); render(); } });
   app.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{ const r=list.find(x=>x.id===b.dataset.edit); if(!r) return; hostEdit={id:r.id,name:r.name,guests:[...(r.guests||[])],dishes:(r.dishes||[]).map(d=>({...d})),host_note:r.host_note||""}; render(); window.scrollTo({top:0,behavior:"smooth"}); });
   app.querySelectorAll("[data-mh]").forEach(b=>b.onclick=async()=>{
     const make=b.dataset.v==="1", self=b.dataset.mh===mine.id;
@@ -434,7 +445,7 @@ function wire(){
   app.querySelectorAll("[data-d]").forEach(el=>el.oninput=()=>{ const w=app.querySelector(`[data-dw="${el.dataset.d}"]`); if(w) w.innerHTML=dishWarn(el.value); });
   if($("copylink")) $("copylink").onclick=async()=>{ try{ await navigator.clipboard.writeText(editLink()); toast("Link copied. Text it to yourself!"); }catch{ prompt("Copy your edit link:",editLink()); } };
   if($("sharelink")) $("sharelink").onclick=async()=>{ try{ await navigator.share({title:"My Steaksgiving RSVP",text:"Edit my Steaksgiving IV RSVP:",url:editLink()}); }catch{} };
-  if($("edit")) $("edit").onclick=()=>{ draft={name:mine.name,guests:[...(mine.guests||[])],dishes:(mine.dishes||[]).map(d=>({...d}))}; editing=true; render(); };
+  if($("edit")) $("edit").onclick=()=>{ draft={name:mine.name,guests:[...(mine.guests||[])],dishes:(mine.dishes||[]).map(d=>({...d})),maybe:!!mine.maybe}; editing=true; render(); };
   if($("back")) $("back").onclick=()=>{ editing=false; render(); };
   if($("addg")) $("addg").onclick=()=>{ syncDraft(); if(draft.guests.length>=10) return toast("That's a lot of guests"); draft.guests.push(""); render(); setTimeout(()=>app.querySelector(`[data-g="${draft.guests.length-1}"]`)?.focus(),0); };
   if($("addd")) $("addd").onclick=()=>{ syncDraft(); if(draft.dishes.length>=10) return toast("Save some for everyone else"); draft.dishes.push({name:"",cat:"Side"}); render(); setTimeout(()=>app.querySelector(`[data-d="${draft.dishes.length-1}"]`)?.focus(),0); };
@@ -465,9 +476,11 @@ function wire(){
     $("save").disabled=true;
     const { data, error }=await sb.rpc("rsvp_save",{p_token:mine?.token??null,p_name:name,p_guests:guests,p_dishes:dishes,p_attending:true});
     if(error){ toast("Couldn't save, try again"); $("save").disabled=false; return; }
+    const maybe=!!draft.maybe;
+    await sb.rpc("rsvp_set_maybe",{p_token:data.token,p_maybe:maybe});
     const isNew=!mine||mine.attending===false;
     mine={...(mine||{}),id:data.id,token:data.token,name,guests,dishes}; localStorage.setItem("sg_rsvp",JSON.stringify({id:data.id,token:data.token}));
-    editing=false; await refreshMine(); await Promise.all([loadList(), loadEvent()]); render(); toast(isNew?"You're in!":"Saved!");
+    editing=false; await refreshMine(); await Promise.all([loadList(), loadEvent()]); render(); toast(maybe?"Saved as a maybe. Update it when you know!":isNew?"You're in!":"Saved!");
     window.scrollTo({top:0,behavior:"smooth"});
   };
 }
