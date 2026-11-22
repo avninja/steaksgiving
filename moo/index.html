@@ -124,7 +124,7 @@ const openCow=()=>cows.find(c=>c.status==="open");
 // ---------- voter ----------
 function voterScreen(){
   const o=openCow();
-  let h=`<div class="hero"><h1>🐄 THE MOO COWPETITION</h1><div class="sub">Rate every moo. The best cow takes home The Mooey.</div></div>`;
+  let h=`<div class="hero"><h1>🐄 THE MOO COWPETITION</h1><div class="sub">Rate every moo. The best cow takes home the Golden Calf Award.</div></div>`;
   if(revealed) h+=results();
   h+=`<div class="card"><label for="nm" style="margin-top:0">Your name</label><input id="nm" maxlength="40" autocomplete="name" placeholder="So nobody rates their own moo" value="${esc(myName)}"></div>`;
   if(o){
@@ -168,7 +168,7 @@ function results(tv){
   const rows=(board||[]).filter(r=>r.votes>0);
   if(!rows.length) return tv?`<div class="tv-sub">No ratings yet.</div>`:`<div class="card">No ratings yet.</div>`;
   const top=rows.filter(r=>Number(r.total)===Number(rows[0].total));
-  const banner=top.length>1?`It's a tie! Moo-off: ${top.map(r=>esc(r.name)).join(" vs. ")}`:`🏆 The Mooey goes to ${esc(rows[0].name)}!`;
+  const banner=top.length>1?`It's a tie! Moo-off: ${top.map(r=>esc(r.name)).join(" vs. ")}`:`🏆 The Golden Calf Award goes to ${esc(rows[0].name)}!`;
   const tbl=`<table class="${tv?"tv-board":""}"><tr><th>CONTESTANT</th><th>REALISM</th><th>PASSION</th><th>HERD</th><th>TOTAL</th></tr>${rows.map((r,i)=>`<tr class="${i===0?"first":""}"><td class="n">${i+1}. ${esc(r.name)}</td><td>${fmt(r.realism)}</td><td>${fmt(r.passion)}</td><td>${fmt(r.herd)}</td><td class="tot">${fmt(r.total)}</td></tr>`).join("")}</table>`;
   return tv?`<div class="tv-win">${banner}</div>${tbl}`:`<div class="win"><div class="big">${banner}</div></div><div class="card">${tbl}<div class="muted" style="margin-top:8px">Each category is the average of everyone's 1 to 5 rating. Total is out of 15.</div></div>`;
 }
@@ -211,7 +211,7 @@ function tvScreen(){
   let h=`<div class="tv-title">🐄 THE MOO COWPETITION</div>`;
   if(revealed) h+=results(true);
   else if(o) h+=`<div class="tv-eyebrow">NOW MOOING</div><div class="tv-name">${esc(o.name)}</div><div class="tv-sub">${counts[o.id]||0} rating${(counts[o.id]||0)===1?"":"s"} in · Realism · Passion · Herd Appeal</div>${url}`;
-  else h+=`<div class="tv-eyebrow">${cows.length?"NEXT COW, PLEASE":"WARM UP THOSE MOOS"}</div><div class="tv-sub">${cows.filter(c=>c.status==="closed").map(c=>esc(c.name)).join(" · ")||"Winner takes home The Mooey"}</div>${url}`;
+  else h+=`<div class="tv-eyebrow">${cows.length?"NEXT COW, PLEASE":"WARM UP THOSE MOOS"}</div><div class="tv-sub">${cows.filter(c=>c.status==="closed").map(c=>esc(c.name)).join(" · ")||"Winner takes home the Golden Calf Award"}</div>${url}`;
   app.innerHTML=h;
   if(lastRevealed===false && revealed && soundOK) playMoo();
   lastRevealed=revealed; syncSound();
