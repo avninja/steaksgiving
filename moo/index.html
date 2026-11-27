@@ -205,14 +205,14 @@ function hostScreen(){
       ${r&&r.votes?`<div class="muted">Realism ${fmt(r.realism)} · Passion ${fmt(r.passion)} · Herd Appeal ${fmt(r.herd)}</div>`:""}
       <div class="acts">${c.status==="open"?`<button class="sec" data-s="closed" data-id="${c.id}">■ Close voting</button>`:`<button class="go" data-s="open" data-id="${c.id}">▶ ${c.status==="closed"?"Reopen":"Open"} voting</button>`}<button class="sec" data-s="removed" data-id="${c.id}" data-n="${esc(c.name)}">Remove</button></div></div>`; }).join(""):`<div class="muted">Nobody yet. Add your first cow above.</div>`}</div>
   <div class="muted" style="color:#fff;opacity:.85">Opening voting for one contestant closes it for the one before. Only hosts see scores until you end voting.</div>
-  <div class="card" style="text-align:center"><button class="sec" id="reset" style="width:100%">↺ Reset the cowpetition</button><div class="muted" style="margin-top:6px">Clears every contestant and rating and hides the results. Use it after a practice run.</div></div>
+  <div class="card" style="text-align:center"><button class="sec" id="reset" style="width:100%">↺ Reset the voting</button><div class="muted" style="margin-top:6px">Clears every rating, hides the results, and puts every contestant back to waiting. The contestant list stays. Use it after a practice run.</div></div>
   <div style="text-align:center"><a class="back" href="../">← Back to the RSVP page</a></div>`;
   const keep=$("add")?.value||"", had=document.activeElement?.id==="add";
   app.innerHTML=h; $("add").value=keep; if(had) $("add").focus();
   const act=async(fn,args,msg)=>{ const { error }=await sb.rpc(fn,{p_token:hostTok,...args}); if(error) toast(error.message); else if(msg) toast(msg); await load(); render(); };
   const add=async()=>{ const n=$("add").value.trim(); if(!n) return; $("add").value=""; await act("moo_add",{p_name:n},`${n} added`); };
   $("addb").onclick=add; $("add").onkeydown=e=>{ if(e.key==="Enter") add(); };
-  $("reset").onclick=()=>{ if(confirm("Reset the Moo Cowpetition? This clears every contestant and rating.")) act("moo_reset",{},"Cowpetition reset"); };
+  $("reset").onclick=()=>{ if(confirm("Reset the voting? This clears every rating and hides the results. The contestant list stays.")) act("moo_reset",{},"Voting reset. Contestants kept."); };
   if($("endv")) $("endv").onclick=()=>{ if(confirm("End voting and show the leaderboard on every screen? No winner is announced yet.")) act("moo_end_voting",{},"Voting ended. Leaderboard is showing."); };
   if($("ann")) $("ann").onclick=()=>act("moo_announce",{p_announced:true},"Winner announced!");
   if($("unann")) $("unann").onclick=()=>act("moo_announce",{p_announced:false},"Announcement taken back");
