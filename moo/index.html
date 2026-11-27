@@ -61,7 +61,9 @@
   .toast.show{opacity:1}
   a.back{color:#fff;font-size:14px;font-weight:700;display:inline-block;margin-top:14px}
   /* TV screen */
-  body.tv{background:#5e0d12;color:#fff;min-height:100vh}
+  body.tv{background:linear-gradient(rgba(40,6,8,.3),rgba(40,6,8,.3)),url(../img/marbling.jpg) 0 0/900px repeat #5e0d12;color:#fff;min-height:100vh}
+  html:has(body.tv){background:#5e0d12}
+  .tvpanel{background:rgba(30,5,7,.86);border-radius:2vw;padding:3vh 3vw;box-shadow:0 1vh 4vh rgba(0,0,0,.45);max-width:94vw}
   body.tv .wrap{max-width:none;padding:3vh 4vw;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
   .tv-title{font-size:4.5vw;font-weight:800;letter-spacing:.3vw}
   .tv-eyebrow{font-size:3vw;font-weight:800;letter-spacing:.6vw;color:var(--gold);margin-top:3vh}
@@ -75,6 +77,10 @@
   .tv-board td.tot{color:var(--gold);font-size:3.2vw}
   .tv-board tr.first td{font-size:3.6vw}
   .tv-win{font-size:5.4vw;font-weight:800;color:var(--gold);line-height:1.1;margin-top:1vh;overflow-wrap:anywhere}
+  .tvqr{display:inline-flex;align-items:center;gap:1.6vw;background:#fff;color:#2b1a14;border-radius:1.2vw;padding:1vw 2vw 1vw 1vw;text-align:left;font-weight:800;font-size:2.4vw;line-height:1.2;margin-top:3.5vh}
+  .tvqr svg{display:block;width:10vw;height:10vw;flex:0 0 auto}
+  .tvqr small{display:block;font-size:1.5vw;font-weight:600;opacity:.7;margin-top:.4vw}
+  .tv-lead{font-size:3.4vw;font-weight:800;color:var(--gold);margin-top:1vh}
   #sound{position:fixed;right:2vw;bottom:2vh;background:var(--gold);color:#3a2a00;font-size:1.6vw;padding:1vh 1.4vw;z-index:5}
 </style>
 </head>
@@ -82,6 +88,7 @@
 <div class="wrap" id="app"><div style="text-align:center;padding:40px 0;color:#fff">Loading…</div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
 const sb = supabase.createClient("https://ntmbifttgdguxifgbrcc.supabase.co", "sb_publishable_8gHqh_eoL7Io2-3QvJ2kcA_2VB-C_7W");
 const Q=new URLSearchParams(location.search), isHost=Q.has("host"), isTV=Q.has("tv");
@@ -104,17 +111,17 @@ let myName=(Q.get("name")||ls.get("sg_name")||"").slice(0,40);
 let hostTok=null; try{ hostTok=JSON.parse(ls.get("sg_rsvp")||"null")?.token||null; }catch{}
 let hostOK=false;
 
-let cows=[], revealed=false, counts={}, mine={}, board=null, picks={}, busy=false, typing=false;
+let cows=[], revealed=false, announced=false, counts={}, mine={}, board=null, picks={}, busy=false, typing=false;
 
 async function load(){
   const [c,s,n,m]=await Promise.all([
     sb.from("moo_contestants").select("id,name,status,created_at").neq("status","removed").order("created_at",{ascending:true}),
-    sb.from("moo_state").select("revealed").eq("id",1).maybeSingle(),
+    sb.from("moo_state").select("revealed,announced").eq("id",1).maybeSingle(),
     sb.rpc("moo_counts"),
     isTV||isHost ? Promise.resolve({data:null}) : sb.rpc("moo_my_votes",{p_voter:voter}),
   ]);
   if(c.error||s.error) return false;            // offline: keep what is on screen
-  cows=c.data||[]; revealed=!!s.data?.revealed; counts=n.data||{};
+  cows=c.data||[]; revealed=!!s.data?.revealed; announced=revealed&&!!s.data?.announced; counts=n.data||{};
   if(m.data){ mine={}; m.data.forEach(v=>mine[v.contestant_id]=v); }
   if(revealed || (isHost&&hostOK)){ const { data }=await sb.rpc("moo_board",{p_token:isHost&&hostOK?hostTok:null}); board=data||null; } else board=null;
   return true;
@@ -169,9 +176,11 @@ function results(tv){
   const rows=(board||[]).filter(r=>r.votes>0);
   if(!rows.length) return tv?`<div class="tv-sub">No ratings yet.</div>`:`<div class="card">No ratings yet.</div>`;
   const top=rows.filter(r=>Number(r.total)===Number(rows[0].total));
-  const banner=top.length>1?`It's a tie! Moo-off: ${top.map(r=>esc(r.name)).join(" vs. ")}`:`🏆 The Golden Calf Award goes to ${esc(rows[0].name)}!`;
-  const tbl=`<table class="${tv?"tv-board":""}"><tr><th>CONTESTANT</th><th>REALISM</th><th>PASSION</th><th>HERD</th><th>TOTAL</th></tr>${rows.map((r,i)=>`<tr class="${i===0?"first":""}"><td class="n">${i+1}. ${esc(r.name)}</td><td>${fmt(r.realism)}</td><td>${fmt(r.passion)}</td><td>${fmt(r.herd)}</td><td class="tot">${fmt(r.total)}</td></tr>`).join("")}</table>`;
-  return tv?`<div class="tv-win">${banner}</div>${tbl}`:`<div class="win"><div class="big">${banner}</div></div><div class="card">${tbl}<div class="muted" style="margin-top:8px">Each category is the average of everyone's 1 to 5 rating. Total is out of 15.</div></div>`;
+  const banner=!announced?null:top.length>1?`It's a tie! Moo-off: ${top.map(r=>esc(r.name)).join(" vs. ")}`:`🏆 The Golden Calf Award goes to ${esc(rows[0].name)}!`;
+  const tbl=`<table class="${tv?"tv-board":""}"><tr><th>CONTESTANT</th><th>REALISM</th><th>PASSION</th><th>HERD</th><th>TOTAL</th></tr>${rows.map((r,i)=>`<tr class="${announced&&i===0?"first":""}"><td class="n">${i+1}. ${esc(r.name)}</td><td>${fmt(r.realism)}</td><td>${fmt(r.passion)}</td><td>${fmt(r.herd)}</td><td class="tot">${fmt(r.total)}</td></tr>`).join("")}</table>`;
+  const lead=banner?(tv?`<div class="tv-win">${banner}</div>`:`<div class="win"><div class="big">${banner}</div></div>`)
+    :(tv?`<div class="tv-lead">📊 Voting is closed. Here's the leaderboard.</div><div class="tv-sub">The Golden Calf Award winner is coming up…</div>`:`<div class="win"><div class="big" style="font-size:20px">📊 Voting is closed. Here's the leaderboard.</div><div class="muted" style="margin-top:4px">The winner will be announced soon.</div></div>`);
+  return tv?`${lead}${tbl}`:`${lead}<div class="card">${tbl}<div class="muted" style="margin-top:8px">Each category is the average of everyone's 1 to 5 rating. Total is out of 15.</div></div>`;
 }
 
 // ---------- host ----------
@@ -180,16 +189,19 @@ function hostScreen(){
   const by={}; (board||[]).forEach(r=>by[r.id]=r);
   const o=openCow();
   let h=`<div class="hero"><h1>🐄 MOO HOST</h1><div class="sub">${o?`Voting is open for ${esc(o.name)}`:"No voting open right now"}</div></div>
-  <div class="hostbar"><b>Results are ${revealed?"SHOWING on every screen":"hidden from guests"}</b>
-    <div class="row3"><button id="rev" class="${revealed?"":"go"}">${revealed?"Hide results":"🏆 Reveal results"}</button><a href="./?tv" target="_blank" rel="noopener">TV screen</a><a href="./">Guest view</a></div></div>
-  <div class="card"><b>How to run it</b><ol style="margin:8px 0 0;padding-left:20px;line-height:1.5"><li>Add each contestant below.</li><li>Tap <b>Open voting</b> when someone steps up to moo.</li><li>Tap <b>Close voting</b> when the ratings are in, then open the next one.</li><li>Tap <b>Reveal results</b> to show the winner on every screen.</li></ol></div>
+  <div class="hostbar"><b>${announced?"The WINNER is announced on every screen":revealed?"The LEADERBOARD is showing (no winner announced yet)":"Results are hidden from guests"}</b>
+    <div class="row3">${!revealed?`<button id="endv" class="go">■ End voting &amp; show leaderboard</button>`
+      :announced?`<button id="unann">Take back the announcement</button><button id="hide">Hide results</button>`
+      :`<button id="ann" class="go">🏆 Announce the winner</button><button id="hide">Hide leaderboard</button>`}</div>
+    <div class="row3"><a href="./?tv" target="_blank" rel="noopener">TV screen</a><a href="./">Guest view</a></div></div>
+  <div class="card"><b>How to run it</b><ol style="margin:8px 0 0;padding-left:20px;line-height:1.5"><li>Add each contestant below.</li><li>Tap <b>Open voting</b> when someone steps up to moo.</li><li>Tap <b>Close voting</b> when the ratings are in, then open the next one.</li><li>When everyone has mooed, tap <b>End voting &amp; show leaderboard</b>. Scores appear on every screen, with no winner named.</li><li>Tap <b>Announce the winner</b> for the Golden Calf Award and a moo on the TV.</li></ol></div>
   <div class="card"><label for="add" style="margin-top:0">Add a contestant</label><div class="row"><input id="add" maxlength="40" placeholder="Name" autocomplete="off"><button id="addb">Add</button></div></div>
   <h2>Contestants</h2><div class="card">${cows.length?cows.map(c=>{ const r=by[c.id];
     return `<div class="li" style="display:block"><div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><div class="nm">${esc(c.name)}<span class="badge ${c.status}">${c.status==="open"?"VOTING OPEN":c.status==="closed"?"CLOSED":"WAITING"}</span></div>
       <div class="r">${counts[c.id]||0} vote${(counts[c.id]||0)===1?"":"s"}${r&&r.votes?` · ${fmt(r.total)} / 15`:""}</div></div>
       ${r&&r.votes?`<div class="muted">Realism ${fmt(r.realism)} · Passion ${fmt(r.passion)} · Herd Appeal ${fmt(r.herd)}</div>`:""}
       <div class="acts">${c.status==="open"?`<button class="sec" data-s="closed" data-id="${c.id}">■ Close voting</button>`:`<button class="go" data-s="open" data-id="${c.id}">▶ ${c.status==="closed"?"Reopen":"Open"} voting</button>`}<button class="sec" data-s="removed" data-id="${c.id}" data-n="${esc(c.name)}">Remove</button></div></div>`; }).join(""):`<div class="muted">Nobody yet. Add your first cow above.</div>`}</div>
-  <div class="muted" style="color:#fff;opacity:.85">Opening voting for one contestant closes it for the one before. Only hosts see scores until you reveal them.</div>
+  <div class="muted" style="color:#fff;opacity:.85">Opening voting for one contestant closes it for the one before. Only hosts see scores until you end voting.</div>
   <div class="card" style="text-align:center"><button class="sec" id="reset" style="width:100%">↺ Reset the cowpetition</button><div class="muted" style="margin-top:6px">Clears every contestant and rating and hides the results. Use it after a practice run.</div></div>
   <div style="text-align:center"><a class="back" href="../">← Back to the RSVP page</a></div>`;
   const keep=$("add")?.value||"", had=document.activeElement?.id==="add";
@@ -198,7 +210,10 @@ function hostScreen(){
   const add=async()=>{ const n=$("add").value.trim(); if(!n) return; $("add").value=""; await act("moo_add",{p_name:n},`${n} added`); };
   $("addb").onclick=add; $("add").onkeydown=e=>{ if(e.key==="Enter") add(); };
   $("reset").onclick=()=>{ if(confirm("Reset the Moo Cowpetition? This clears every contestant and rating.")) act("moo_reset",{},"Cowpetition reset"); };
-  $("rev").onclick=()=>act("moo_reveal",{p_revealed:!revealed},revealed?"Results hidden":"Results revealed!");
+  if($("endv")) $("endv").onclick=()=>{ if(confirm("End voting and show the leaderboard on every screen? No winner is announced yet.")) act("moo_end_voting",{},"Voting ended. Leaderboard is showing."); };
+  if($("ann")) $("ann").onclick=()=>act("moo_announce",{p_announced:true},"Winner announced!");
+  if($("unann")) $("unann").onclick=()=>act("moo_announce",{p_announced:false},"Announcement taken back");
+  if($("hide")) $("hide").onclick=()=>act("moo_reveal",{p_revealed:false},"Results hidden");
   app.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{
     if(b.dataset.s==="removed" && !confirm(`Remove ${b.dataset.n} and their ratings from the cowpetition?`)) return;
     act("moo_set_status",{p_id:b.dataset.id,p_status:b.dataset.s});
@@ -207,18 +222,20 @@ function hostScreen(){
 
 // ---------- TV ----------
 const MOO_SRC=[1,2,3,4,5].map(i=>"../bingo/moo/moo"+i+".mp3?v=5");
-const mooEl=new Audio(); mooEl.preload="auto"; let soundOK=false, lastRevealed;
+const mooEl=new Audio(); mooEl.preload="auto"; let soundOK=false, lastAnnounced;
+const VOTE_URL=location.origin+location.pathname.replace(/index\.html$/,"");
+function qrTag(){ if(typeof qrcode!=="function") return ""; const q=qrcode(0,"M"); q.addData(VOTE_URL); q.make(); return `<div class="tvqr">${q.createSvgTag({cellSize:4,margin:0,scalable:true})}<div>Scan to rate the moos<small>${VOTE_URL.replace(/^https?:\/\//,"")}</small></div></div>`; }
 function playMoo(){ mooEl.src=MOO_SRC[Math.floor(Math.random()*MOO_SRC.length)]; const p=mooEl.play(); if(p) p.then(()=>{ soundOK=true; syncSound(); }).catch(()=>{ soundOK=false; syncSound(); }); }
 function syncSound(){ let b=$("sound"); if(soundOK){ b?.remove(); return; } if(!b){ b=document.createElement("button"); b.id="sound"; b.textContent="🔊 Tap to turn on the moo"; b.onclick=playMoo; document.body.appendChild(b); } }
 function tvScreen(){
-  const o=openCow(); const url=`<div class="tv-url">Rate the moos on your phone: <b>${location.host}${location.pathname.replace(/index\.html$/,"")}</b></div>`;
+  const o=openCow(); const url=qrTag()||`<div class="tv-url">Rate the moos on your phone: <b>${location.host}${location.pathname.replace(/index\.html$/,"")}</b></div>`;
   let h=`<div class="tv-title">🐄 THE MOO COWPETITION</div>`;
   if(revealed) h+=results(true);
   else if(o) h+=`<div class="tv-eyebrow">NOW MOOING</div><div class="tv-name">${esc(o.name)}</div><div class="tv-sub">${counts[o.id]||0} rating${(counts[o.id]||0)===1?"":"s"} in · Realism · Passion · Herd Appeal</div>${url}`;
   else h+=`<div class="tv-eyebrow">${cows.length?"NEXT COW, PLEASE":"WARM UP THOSE MOOS"}</div><div class="tv-sub">${cows.filter(c=>c.status==="closed").map(c=>esc(c.name)).join(" · ")||"Winner takes home the Golden Calf Award"}</div>${url}`;
-  app.innerHTML=h;
-  if(lastRevealed===false && revealed && soundOK) playMoo();
-  lastRevealed=revealed; syncSound();
+  app.innerHTML=`<div class="tvpanel">${h}</div>`;
+  if(lastAnnounced===false && announced && soundOK) playMoo();   // moo when the winner is announced
+  lastAnnounced=announced; syncSound();
 }
 
 function render(){ if(isTV) return tvScreen(); if(isHost) return hostScreen(); if(typing) return; voterScreen(); }
