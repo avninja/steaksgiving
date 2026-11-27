@@ -125,6 +125,7 @@ const openCow=()=>cows.find(c=>c.status==="open");
 function voterScreen(){
   const o=openCow();
   let h=`<div class="hero"><h1>🐄 THE MOO COWPETITION</h1><div class="sub">Rate every moo. The best cow takes home the Golden Calf Award.</div></div>`;
+  if(hostOK) h+=`<div class="hostbar"><b>You're a host.</b> Add contestants and open voting from the host controls.<div class="row3"><a href="./?host" class="go">▶ Host controls</a><a href="./?tv" target="_blank" rel="noopener">TV screen</a></div></div>`;
   if(revealed) h+=results();
   h+=`<div class="card"><label for="nm" style="margin-top:0">Your name</label><input id="nm" maxlength="40" autocomplete="name" placeholder="So nobody rates their own moo" value="${esc(myName)}"></div>`;
   if(o){
@@ -181,6 +182,7 @@ function hostScreen(){
   let h=`<div class="hero"><h1>🐄 MOO HOST</h1><div class="sub">${o?`Voting is open for ${esc(o.name)}`:"No voting open right now"}</div></div>
   <div class="hostbar"><b>Results are ${revealed?"SHOWING on every screen":"hidden from guests"}</b>
     <div class="row3"><button id="rev" class="${revealed?"":"go"}">${revealed?"Hide results":"🏆 Reveal results"}</button><a href="./?tv" target="_blank" rel="noopener">TV screen</a><a href="./">Guest view</a></div></div>
+  <div class="card"><b>How to run it</b><ol style="margin:8px 0 0;padding-left:20px;line-height:1.5"><li>Add each contestant below.</li><li>Tap <b>Open voting</b> when someone steps up to moo.</li><li>Tap <b>Close voting</b> when the ratings are in, then open the next one.</li><li>Tap <b>Reveal results</b> to show the winner on every screen.</li></ol></div>
   <div class="card"><label for="add" style="margin-top:0">Add a contestant</label><div class="row"><input id="add" maxlength="40" placeholder="Name" autocomplete="off"><button id="addb">Add</button></div></div>
   <h2>Contestants</h2><div class="card">${cows.length?cows.map(c=>{ const r=by[c.id];
     return `<div class="li" style="display:block"><div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><div class="nm">${esc(c.name)}<span class="badge ${c.status}">${c.status==="open"?"VOTING OPEN":c.status==="closed"?"CLOSED":"WAITING"}</span></div>
@@ -188,12 +190,14 @@ function hostScreen(){
       ${r&&r.votes?`<div class="muted">Realism ${fmt(r.realism)} · Passion ${fmt(r.passion)} · Herd Appeal ${fmt(r.herd)}</div>`:""}
       <div class="acts">${c.status==="open"?`<button class="sec" data-s="closed" data-id="${c.id}">■ Close voting</button>`:`<button class="go" data-s="open" data-id="${c.id}">▶ ${c.status==="closed"?"Reopen":"Open"} voting</button>`}<button class="sec" data-s="removed" data-id="${c.id}" data-n="${esc(c.name)}">Remove</button></div></div>`; }).join(""):`<div class="muted">Nobody yet. Add your first cow above.</div>`}</div>
   <div class="muted" style="color:#fff;opacity:.85">Opening voting for one contestant closes it for the one before. Only hosts see scores until you reveal them.</div>
+  <div class="card" style="text-align:center"><button class="sec" id="reset" style="width:100%">↺ Reset the cowpetition</button><div class="muted" style="margin-top:6px">Clears every contestant and rating and hides the results. Use it after a practice run.</div></div>
   <div style="text-align:center"><a class="back" href="../">← Back to the RSVP page</a></div>`;
   const keep=$("add")?.value||"", had=document.activeElement?.id==="add";
   app.innerHTML=h; $("add").value=keep; if(had) $("add").focus();
   const act=async(fn,args,msg)=>{ const { error }=await sb.rpc(fn,{p_token:hostTok,...args}); if(error) toast(error.message); else if(msg) toast(msg); await load(); render(); };
   const add=async()=>{ const n=$("add").value.trim(); if(!n) return; $("add").value=""; await act("moo_add",{p_name:n},`${n} added`); };
   $("addb").onclick=add; $("add").onkeydown=e=>{ if(e.key==="Enter") add(); };
+  $("reset").onclick=()=>{ if(confirm("Reset the Moo Cowpetition? This clears every contestant and rating.")) act("moo_reset",{},"Cowpetition reset"); };
   $("rev").onclick=()=>act("moo_reveal",{p_revealed:!revealed},revealed?"Results hidden":"Results revealed!");
   app.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{
     if(b.dataset.s==="removed" && !confirm(`Remove ${b.dataset.n} and their ratings from the cowpetition?`)) return;
@@ -220,7 +224,7 @@ function tvScreen(){
 function render(){ if(isTV) return tvScreen(); if(isHost) return hostScreen(); if(typing) return; voterScreen(); }
 
 (async()=>{
-  if(isHost && hostTok){ const { data }=await sb.rpc("host_check",{p_token:hostTok}); hostOK=!!data; }
+  if(!isTV && hostTok){ const { data }=await sb.rpc("host_check",{p_token:hostTok}); hostOK=!!data; }
   if(!isHost && !isTV && !myName && hostTok){ const { data }=await sb.rpc("rsvp_get",{p_token:hostTok}); if(data?.name){ myName=data.name; ls.set("sg_name",myName); } }
   const ok=await load(); render();
   if(!ok) toast("Can't reach the server. Still trying…");

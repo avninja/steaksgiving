@@ -268,8 +268,8 @@ function hostBar(){
     <div class="row3"><button id="hann">📣 ${bingo?.announcement?"Edit announcement":"Post an announcement"}</button></div>
     <div style="margin-top:12px"><b>Steak Bingo</b> · ${bingo?.status==="open"?"OPEN (Join buttons are showing)":"not running"}</div>
     <div class="row3"><button id="hbingo" class="${bingo?.status==="open"?"":"go"}">${bingo?.status==="open"?"■ Stop Bingo":"▶ Start Bingo"}</button><a href="bingo/?host">Bingo host screen</a><a href="bingo/?tv" target="_blank" rel="noopener">TV screen</a></div>
-    <div style="margin-top:12px"><b>Moo Cowpetition</b> · guests rate at the Rate the Moos button</div>
-    <div class="row3"><a href="moo/?host" class="go">Moo host screen</a><a href="moo/?tv" target="_blank" rel="noopener">Moo TV screen</a></div>
+    <div style="margin-top:12px"><b>Moo Cowpetition</b> · add contestants, open voting, reveal the winner</div>
+    <div class="row3"><a href="moo/?host" class="go">▶ Run the Moo Cowpetition</a><a href="moo/?tv" target="_blank" rel="noopener">Moo TV screen</a></div>
     ${showRoster?`<pre class="roster" style="margin:10px 0 0">${esc(rosterText())}</pre>`:""}</div>`;
 }
 function hostForm(){
