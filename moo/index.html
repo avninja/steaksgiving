@@ -196,6 +196,9 @@ function hostScreen(){
     <div class="row3"><a href="./?tv" target="_blank" rel="noopener">TV screen</a><a href="./">Guest view</a></div></div>
   <div class="card"><b>How to run it</b><ol style="margin:8px 0 0;padding-left:20px;line-height:1.5"><li>Add each contestant below.</li><li>Tap <b>Open voting</b> when someone steps up to moo.</li><li>Tap <b>Close voting</b> when the ratings are in, then open the next one.</li><li>When everyone has mooed, tap <b>End voting &amp; show leaderboard</b>. Scores appear on every screen, with no winner named.</li><li>Tap <b>Announce the winner</b> for the Golden Calf Award and a moo on the TV.</li></ol></div>
   <div class="card"><label for="add" style="margin-top:0">Add a contestant</label><div class="row"><input id="add" maxlength="40" placeholder="Name" autocomplete="off"><button id="addb">Add</button></div></div>
+  ${(()=>{ const w=cows.filter(c=>c.status==="waiting").length; return `<div class="hostbar"><b>Who's next?</b> ${w?`${w} cow${w===1?"":"s"} still waiting to moo`:"Everyone has had a turn"}
+    <div class="row3"><button id="rand" class="${w?"go":""}" ${w?"":"disabled"}>🎲 Pick the next cow at random</button></div>
+    <div class="muted" style="color:#fff;opacity:.8;margin-top:6px">Picks someone who hasn't mooed yet and opens their voting${o?`, closing ${esc(o.name)}'s`:""}.</div></div>`; })()}
   <h2>Contestants</h2><div class="card">${cows.length?cows.map(c=>{ const r=by[c.id];
     return `<div class="li" style="display:block"><div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><div class="nm">${esc(c.name)}<span class="badge ${c.status}">${c.status==="open"?"VOTING OPEN":c.status==="closed"?"CLOSED":"WAITING"}</span></div>
       <div class="r">${counts[c.id]||0} vote${(counts[c.id]||0)===1?"":"s"}${r&&r.votes?` · ${fmt(r.total)} / 15`:""}</div></div>
@@ -214,6 +217,11 @@ function hostScreen(){
   if($("ann")) $("ann").onclick=()=>act("moo_announce",{p_announced:true},"Winner announced!");
   if($("unann")) $("unann").onclick=()=>act("moo_announce",{p_announced:false},"Announcement taken back");
   if($("hide")) $("hide").onclick=()=>act("moo_reveal",{p_revealed:false},"Results hidden");
+  $("rand").onclick=()=>{
+    const w=cows.filter(c=>c.status==="waiting"); if(!w.length) return;
+    const pick=w[Math.floor(Math.random()*w.length)];
+    act("moo_set_status",{p_id:pick.id,p_status:"open"},`Next up: ${pick.name}!`);
+  };
   app.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{
     if(b.dataset.s==="removed" && !confirm(`Remove ${b.dataset.n} and their ratings from the cowpetition?`)) return;
     act("moo_set_status",{p_id:b.dataset.id,p_status:b.dataset.s});
